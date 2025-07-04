@@ -1,4 +1,3 @@
-// src/core/infrastructure/api/config/endpoints.config.ts
 const ENDPOINTS = {
     AUTH: {
         BASE_URL: '/auth' as const,
@@ -15,6 +14,16 @@ const ENDPOINTS = {
         UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
         DELETE: function (id: number) { return `${this.BASE_URL}/${id}` }
     },
+    // ===== เพิ่ม CUSTOMER BOOKING ENDPOINTS =====
+    CUSTOMER_BOOKING: {
+        BASE_URL: '/customer/booking' as const,
+        get ROOMS() { return `${this.BASE_URL}/rooms` },
+        get BOOK() { return `${this.BASE_URL}/book` },
+        get HISTORY() { return `${this.BASE_URL}/history` },
+        ROOM_DETAIL: function (roomId: number) { return `${this.BASE_URL}/rooms/${roomId}` },
+        BOOKING_DETAIL: function (bookingId: number) { return `${this.BASE_URL}/detail/${bookingId}` },
+        CANCEL_BOOKING: function (bookingId: number) { return `${this.BASE_URL}/cancel/${bookingId}` }
+    },
     STAFF: {
         BASE_URL: '/staff' as const,
         get GET() { return `${this.BASE_URL}/query` },
@@ -28,7 +37,26 @@ const ENDPOINTS = {
         get GET() { return `${this.BASE_URL}/query` },
         get CREATE() { return `${this.BASE_URL}/create` },
         get AVAILABLE() { return `${this.BASE_URL}/available` },
+        // ===== เพิ่ม Room Gallery Endpoints =====
+        get AVAILABLE_FOR_BOOKING() { return `${this.BASE_URL}/available-for-booking` },
+        get ROOM_DETAILS() { return `${this.BASE_URL}/room-details` },
+        get SEARCH() { return `${this.BASE_URL}/search` },
+        get ROOM_STATS() { return `${this.BASE_URL}/room-stats` },
         DETAIL: function (id: number) { return `${this.BASE_URL}/${id}` },
+        UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
+        DELETE: function (id: number) { return `${this.BASE_URL}/${id}` }
+    },
+    // ===== เพิ่ม ROOM GALLERY ENDPOINTS =====
+    ROOM_GALLERY: {
+        BASE_URL: '/room-galleries' as const,
+        get CREATE() { return `${this.BASE_URL}` },
+        get QUERY() { return `${this.BASE_URL}/query` },
+        get FIND_ONE() { return `${this.BASE_URL}/find-one` },
+        get FIND_BY_ROOM() { return `${this.BASE_URL}/find-by-room` },
+        get FIND_MAIN_IMAGE() { return `${this.BASE_URL}/find-main-image` },
+        get SET_MAIN_IMAGE() { return `${this.BASE_URL}/set-main-image` },
+        get REORDER() { return `${this.BASE_URL}/reorder` },
+        get STATS() { return `${this.BASE_URL}/stats` },
         UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
         DELETE: function (id: number) { return `${this.BASE_URL}/${id}` }
     },
@@ -58,7 +86,7 @@ const ENDPOINTS = {
         CHANGE_STATUS: function (id: number, status: string) {
             return `${this.BASE_URL}/${id}/status/${status}`
         },
-        // ===== เพิ่ม Workflow Endpoints =====
+        // ===== Workflow Endpoints =====
         CONFIRM: function (id: number) { return `${this.BASE_URL}/${id}/confirm` },
         CHECKIN: function (id: number) { return `${this.BASE_URL}/${id}/checkin` },
         CHECKOUT: function (id: number) { return `${this.BASE_URL}/${id}/checkout` }
@@ -70,6 +98,33 @@ const ENDPOINTS = {
         DETAIL: function (id: number) { return `${this.BASE_URL}/${id}` },
         UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
         DELETE: function (id: number) { return `${this.BASE_URL}/${id}` }
+    },
+    // ===== CHECKIN ENDPOINTS =====
+    CHECKIN: {
+        BASE_URL: '/check-in' as const,
+        get GET() { return `${this.BASE_URL}/query` },
+        get CREATE() { return `${this.BASE_URL}/create` },
+        get CURRENT() { return `${this.BASE_URL}/current/list` },
+        get STATS() { return `${this.BASE_URL}/stats/summary` },
+        DETAIL: function (id: number) { return `${this.BASE_URL}/${id}` },
+        UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
+        DELETE: function (id: number) { return `${this.BASE_URL}/${id}` },
+        BY_BOOKING: function (bookingId: number) { return `${this.BASE_URL}/booking/${bookingId}` },
+        BY_CUSTOMER: function (customerId: number) { return `${this.BASE_URL}/customer/${customerId}` },
+        CHECKIN_BOOKING: function (bookingId: number) { return `${this.BASE_URL}/${bookingId}/checkin` }
+    },
+    // ===== CHECKOUT ENDPOINTS =====
+    CHECKOUT: {
+        BASE_URL: '/check-out' as const,
+        get GET() { return `${this.BASE_URL}/query` },
+        get CREATE() { return `${this.BASE_URL}/create` },
+        get TODAY() { return `${this.BASE_URL}/today` },
+        get STATS() { return `${this.BASE_URL}/stats` },
+        DETAIL: function (id: number) { return `${this.BASE_URL}/${id}` },
+        UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
+        DELETE: function (id: number) { return `${this.BASE_URL}/${id}` },
+        BY_CHECKIN: function (checkInId: number) { return `${this.BASE_URL}/checkin/${checkInId}` },
+        CHECKOUT_CHECKIN: function (checkInId: number) { return `${this.BASE_URL}/${checkInId}/checkout` }
     },
     PAYMENT: {
         BASE_URL: '/payments' as const,
@@ -87,15 +142,20 @@ const ENDPOINTS = {
     }
 } as const;
 
+// ===== อัปเดต exports =====
 export const {
     AUTH: AUTH_ENDPOINTS,
     CUSTOMER: CUSTOMER_ENDPOINTS,
+    CUSTOMER_BOOKING: CUSTOMER_BOOKING_ENDPOINTS, // ✅ เพิ่ม
     STAFF: STAFF_ENDPOINTS,
     ROOM: ROOM_ENDPOINTS,
+    ROOM_GALLERY: ROOM_GALLERY_ENDPOINTS, // ✅ เพิ่ม
     ROOM_TYPE: ROOM_TYPE_ENDPOINTS,
     ROOM_STATUS: ROOM_STATUS_ENDPOINTS,
     BOOKING: BOOKING_ENDPOINTS,
     BOOKING_STATUS: BOOKING_STATUS_ENDPOINTS,
+    CHECKIN: CHECKIN_ENDPOINTS,
+    CHECKOUT: CHECKOUT_ENDPOINTS,
     PAYMENT: PAYMENT_ENDPOINTS,
     DASHBOARD: DASHBOARD_ENDPOINTS
 } = ENDPOINTS;

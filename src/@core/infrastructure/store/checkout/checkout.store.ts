@@ -1,177 +1,441 @@
-// src/core/domain/store/Checkout/checkout.store.ts
+// src/core/infrastructure/store/checkout/checkout.store.ts (FIXED)
 import { create } from 'zustand';
-import { CheckOutModel } from '@core/domain/models/check-out.model';
-import { Booking } from '@core/domain/models/booking/list.model';
-import { CheckOutService } from '@application/services/check-out.service';
-import { BookingService } from '@application/services/bookings.service';
-import { PaymentService } from '@application/services/payments.service';
-import { CreateCheckOutDto } from '@application/dtos/check-out.dto';
-import { CreatePaymentDto } from '@application/dtos/payment.dto';
+import { CheckOut } from '@core/domain/models/check-out/list.model';
+import { checkOutService } from '@core/services/checkout.service';
+import { useErrorStore } from '../useError.store';
+import { useLoadingStore } from '../useLoading.store';
+import { CheckOutInput } from '@core/domain/models/check-out/form.model';
 
-interface CheckoutState {
-  // Data
-  checkedInBookings: Booking[];
-  checkOuts: CheckOutModel[];
-  selectedBooking: Booking | null;
-  searchValue: string;
-  
-  // UI States
+// ===== Interface Definition =====
+interface CheckOutState {
+  // สถานะทั่วไป
+  items: CheckOut[];
+  todayCheckOuts: CheckOut[];
+  stats: {
+    totalCheckOuts: number;
+    checkOutsToday: number;
+    averageStayDuration: number;
+    totalRevenue: number;
+  } | null;
   isLoading: boolean;
-  isProcessing: boolean;
-  error: string | null;
+  filters: Record<string, any>;
   
-  // Payment related
-  showPaymentDialog: boolean;
-  paymentAmount: number;
+  // สถานะฟอร์ม
+  isVisible: boolean;
+  isFormVisible: boolean;
+  isSubmitting: boolean;
+  selectedItem: CheckOut | null;
   
-  // Actions
-  setSearchValue: (value: string) => void;
-  setSelectedBooking: (booking: Booking | null) => void;
-  setShowPaymentDialog: (show: boolean) => void;
-  setPaymentAmount: (amount: number) => void;
+  // ฟังก์ชันจัดการรายการ
+  setFilters: (filters: Record<string, any>) => void;
+  setItems: (items: CheckOut[]) => void;
+  addItem: (item: CheckOut) => void;
+  removeItem: (id: number) => void;
+  updateItem: (id: number, updatedItem: CheckOut) => void;
+  fetchItems: () => Promise<void>;
+  fetchTodayCheckOuts: () => Promise<void>;
+  fetchStats: () => Promise<void>;
+  delete: (id: number) => Promise<void>;
   
-  // API Actions
-  fetchCheckedInBookings: () => Promise<void>;
-  processCheckout: (bookingId: number, paymentAmount?: number) => Promise<void>;
+  // ฟังก์ชันจัดการฟอร์ม
+  setVisible: (visible: boolean) => void;
+  setFormVisible: (visible: boolean) => void;
+  setSelectedItem: (item: CheckOut | null) => void;
+  create: (data: CheckOutInput) => Promise<CheckOut>;
+  update: (id: number, data: CheckOutInput) => Promise<CheckOut>;
   
-  // Computed
-  getFilteredBookings: () => Booking[];
-  getTodayCheckouts: () => Booking[];
+  // Workflow methods
+  checkoutCheckIn: (checkInId: number, staffId: number) => Promise<CheckOut>;
+  
+  // Query methods
+  findByCheckInId: (checkInId: number) => Promise<CheckOut | null>;
+  
+  // Debug methods
+  debug: () => Promise<void>;
+  
+  reset: () => void;
+  resetForm: () => void;
 }
 
-export const useCheckoutStore = create<CheckoutState>((set, get) => ({
-  // Initial state
-  checkedInBookings: [],
-  checkOuts: [],
-  selectedBooking: null,
-  searchValue: '',
+// ===== Store Implementation =====
+const useCheckOutStore = create<CheckOutState>((set, get) => ({
+  // สถานะเริ่มต้น
+  items: [],
+  todayCheckOuts: [],
+  stats: null,
   isLoading: false,
-  isProcessing: false,
-  error: null,
-  showPaymentDialog: false,
-  paymentAmount: 0,
-
-  // Actions
-  setSearchValue: (value: string) => set({ searchValue: value }),
-  setSelectedBooking: (booking: Booking | null) => set({ selectedBooking: booking }),
-  setShowPaymentDialog: (show: boolean) => set({ showPaymentDialog: show }),
-  setPaymentAmount: (amount: number) => set({ paymentAmount: amount }),
-
-  // Fetch checked-in bookings (StatusId = 3)
-  fetchCheckedInBookings: async () => {
-    set({ isLoading: true, error: null });
+  filters: {},
+  
+  // สถานะฟอร์ม
+  isVisible: false,
+  isFormVisible: false,
+  isSubmitting: false,
+  selectedItem: null,
+  
+  // ฟังก์ชันจัดการรายการ
+  setFilters: (filters: Record<string, any>) => {
+    console.log('🔧 Store: Setting filters:', filters);
+    set({ filters });
+  },
+  
+  setItems: (items: CheckOut[]) => {
+    console.log('📝 Store: Setting items:', items.length, 'checkout records');
+    set({ items });
+  },
+  
+  addItem: (item: CheckOut) => {
+    console.log('➕ Store: Adding checkout item:', item.CheckOutId);
+    set((state) => ({
+      items: [...state.items, item]
+    }));
+  },
+  
+  removeItem: (id: number) => {
+    console.log('➖ Store: Removing checkout item:', id);
+    set((state) => ({
+      items: state.items.filter((item) => item.CheckOutId !== id)
+    }));
+  },
+  
+  updateItem: (id: number, updatedItem: CheckOut) => {
+    console.log('✏️ Store: Updating checkout item:', id);
+    set((state) => ({
+      items: state.items.map((item) => 
+        item.CheckOutId === id ? { ...item, ...updatedItem } : item
+      )
+    }));
+  },
+  
+  fetchItems: async () => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
     
     try {
-      const bookingService = new BookingService();
-      const bookings = await bookingService.getCheckedInBookings({
-        relations: ['room', 'customer', 'staff', 'room.roomType'],
-        orderBy: { CheckinDate: 'DESC' },
-        getType: 'many'
+      console.log('📋 Store: Starting fetchItems...');
+      console.log('🕐 Timestamp:', new Date().toISOString());
+      
+      setLoading(true);
+      set({ isLoading: true });
+      
+      console.log('🔗 Store: Calling checkOutService.getMany()');
+      const data = await checkOutService.getMany();
+      
+      console.log('✅ Store: Fetched check-outs successfully:', {
+        count: data?.length || 0,
+        firstItem: data?.[0] || null,
+        type: typeof data,
+        isArray: Array.isArray(data)
       });
       
-      set({ 
-        checkedInBookings: Array.isArray(bookings) ? bookings : [],
-        isLoading: false 
+      // ตรวจสอบว่า data เป็น array หรือไม่
+      const safeData = Array.isArray(data) ? data : [];
+      
+      set({ items: safeData, isLoading: false });
+      setLoading(false);
+      
+      console.log('📊 Store: State updated successfully, items count:', safeData.length);
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error in fetchItems:', error);
+      console.error('❌ Store: Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        url: error.config?.url,
+        method: error.config?.method,
+        stack: error.stack
       });
-    } catch (error) {
-      console.error('Error fetching checked-in bookings:', error);
-      set({ 
-        error: 'ไม่สามารถโหลดข้อมูลการจองที่เช็คอินแล้วได้',
-        isLoading: false 
-      });
+      
+      set({ isLoading: false, items: [] });
+      setLoading(false);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch check-outs';
+      setError(errorMessage);
+      
+      // แจ้งเตือนใน console
+      console.warn('⚠️ Store: Setting empty array due to error');
     }
   },
 
-  // Process checkout
-  processCheckout: async (bookingId: number, paymentAmount?: number) => {
-    const { selectedBooking } = get();
-    if (!selectedBooking) return;
-    
-    set({ isProcessing: true, error: null });
-    
+  fetchTodayCheckOuts: async () => {
     try {
-      // 1. Create checkout record first
-      const checkOutService = new CheckOutService();
-      const checkInService = new CheckInService();
+      console.log('📅 Store: Fetching today check-outs...');
       
-      // Find the check-in record for this booking
-      const checkInRecords = await checkInService.findByBookingId(bookingId);
-      if (!checkInRecords) {
-        throw new Error('ไม่พบข้อมูลการเช็คอิน');
-      }
+      const data = await checkOutService.getTodayCheckOuts();
       
-      const checkOutData: CreateCheckOutDto = {
-        CheckoutDate: new Date(),
-        CheckinId: checkInRecords.CheckInId,
-        RoomId: selectedBooking.RoomId,
-        StaffId: selectedBooking.StaffId || 1 // Default staff ID if not available
+      console.log('✅ Store: Fetched today check-outs:', {
+        count: data?.length || 0,
+        data: data?.slice(0, 3) || []
+      });
+      
+      const safeData = Array.isArray(data) ? data : [];
+      set({ todayCheckOuts: safeData });
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error fetching today check-outs:', error);
+      set({ todayCheckOuts: [] });
+    }
+  },
+
+  fetchStats: async () => {
+    try {
+      console.log('📊 Store: Fetching check-out stats...');
+      
+      const stats = await checkOutService.getStats();
+      
+      console.log('✅ Store: Fetched stats:', stats);
+      set({ stats });
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error fetching check-out stats:', error);
+      
+      // Set default stats on error
+      const defaultStats = {
+        totalCheckOuts: 0,
+        checkOutsToday: 0,
+        averageStayDuration: 0,
+        totalRevenue: 0
       };
       
-      const checkOutResult = await checkOutService.create(checkOutData);
+      console.log('⚠️ Store: Setting default stats due to error');
+      set({ stats: defaultStats });
+    }
+  },
+  
+  delete: async (id: number) => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
+    
+    try {
+      console.log('🗑️ Store: Deleting check-out:', id);
+      setLoading(true);
       
-      // 2. Create payment record if payment amount is provided
-      if (paymentAmount && paymentAmount > 0) {
-        const paymentService = new PaymentService();
-        const paymentData: CreatePaymentDto = {
-          PaymentPrice: paymentAmount,
-          PaymentDate: new Date(),
-          StaffId: selectedBooking.StaffId || 1,
-          CheckoutId: checkOutResult.CheckoutId
-        };
-        
-        await paymentService.create(paymentData);
+      await checkOutService.delete(id);
+      get().removeItem(id);
+      
+      console.log('✅ Store: Check-out deleted successfully');
+      setLoading(false);
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error deleting check-out:', error);
+      setLoading(false);
+      setError(error.message || 'Failed to delete check-out');
+      throw error;
+    }
+  },
+  
+  // ฟังก์ชันจัดการฟอร์ม
+  setVisible: (visible: boolean) => {
+    console.log('👁️ Store: Setting visible:', visible);
+    set({ isVisible: visible });
+  },
+  
+  setFormVisible: (visible: boolean) => {
+    console.log('📝 Store: Setting form visible:', visible);
+    set({ isFormVisible: visible });
+  },
+  
+  setSelectedItem: (item: CheckOut | null) => {
+    console.log('🎯 Store: Setting selected item:', item?.CheckOutId || null);
+    set({ selectedItem: item });
+  },
+  
+  create: async (data: CheckOutInput) => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
+    
+    try {
+      console.log('➕ Store: Creating check-out:', data);
+      set({ isSubmitting: true });
+      setLoading(true);
+      
+      const newItem = await checkOutService.create(data);
+      get().addItem(newItem);
+      
+      set({
+        isSubmitting: false,
+        isVisible: false,
+        isFormVisible: false,
+        selectedItem: null
+      });
+      
+      console.log('✅ Store: Check-out created successfully:', newItem);
+      setLoading(false);
+      return newItem;
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error creating check-out:', error);
+      set({ isSubmitting: false });
+      setLoading(false);
+      setError(error.message || 'Failed to create check-out');
+      throw error;
+    }
+  },
+  
+  update: async (id: number, data: CheckOutInput) => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
+    
+    try {
+      console.log('✏️ Store: Updating check-out:', id, data);
+      set({ isSubmitting: true });
+      setLoading(true);
+      
+      const updatedItem = await checkOutService.update(id, data);
+      get().updateItem(id, updatedItem);
+      
+      set({
+        isSubmitting: false,
+        isVisible: false,
+        isFormVisible: false,
+        selectedItem: null
+      });
+      
+      console.log('✅ Store: Check-out updated successfully:', updatedItem);
+      setLoading(false);
+      return updatedItem;
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error updating check-out:', error);
+      set({ isSubmitting: false });
+      setLoading(false);
+      setError(error.message || 'Failed to update check-out');
+      throw error;
+    }
+  },
+
+  // Workflow methods
+  checkoutCheckIn: async (checkInId: number, staffId: number) => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
+    
+    try {
+      console.log('🚪 Store: Starting check-out process');
+      console.log('🏨 Check-in ID:', checkInId);
+      console.log('👤 Staff ID:', staffId);
+      
+      set({ isLoading: true });
+      setLoading(true);
+      
+      const newCheckOut = await checkOutService.checkoutCheckIn(checkInId, staffId);
+      
+      console.log('✅ Store: Check-out successful:', newCheckOut);
+      
+      // เพิ่มข้อมูล check-out ใหม่เข้า store
+      get().addItem(newCheckOut);
+      
+      set({ isLoading: false });
+      setLoading(false);
+      
+      return newCheckOut;
+      
+    } catch (error: any) {
+      console.error('❌ Store: Check-out failed:', error);
+      
+      set({ isLoading: false });
+      setLoading(false);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
+      const errorStatus = error.response?.status;
+      
+      console.error('❌ Store: Detailed error:', {
+        message: errorMessage,
+        status: errorStatus,
+        checkInId: checkInId,
+        staffId: staffId,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      
+      setError(`Check-out failed: ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Query methods
+  findByCheckInId: async (checkInId: number) => {
+    try {
+      console.log('🔍 Store: Finding check-out by check-in ID:', checkInId);
+      
+      const checkOut = await checkOutService.findByCheckInId(checkInId);
+      
+      console.log('✅ Store: Found check-out:', checkOut);
+      return checkOut;
+      
+    } catch (error: any) {
+      console.error('❌ Store: Error finding check-out by check-in ID:', error);
+      throw error;
+    }
+  },
+
+  // Debug method
+  debug: async () => {
+    try {
+      console.log('🔧 Store: === DEBUG CHECKOUT STORE ===');
+      
+      const currentState = get();
+      console.log('📊 Current store state:', {
+        itemsCount: currentState.items.length,
+        items: currentState.items.slice(0, 3), // แสดงแค่ 3 รายการแรก
+        todayCheckOutsCount: currentState.todayCheckOuts.length,
+        stats: currentState.stats,
+        isLoading: currentState.isLoading,
+        filters: currentState.filters,
+        isVisible: currentState.isVisible,
+        selectedItem: currentState.selectedItem?.CheckOutId || null
+      });
+      
+      console.log('🔧 Testing store methods...');
+      
+      // Test service connection
+      console.log('🧪 Testing checkOutService.getMany()...');
+      try {
+        const testData = await checkOutService.getMany();
+        console.log('✅ Service test passed:', {
+          count: testData?.length || 0,
+          type: typeof testData,
+          isArray: Array.isArray(testData)
+        });
+      } catch (serviceError) {
+        console.error('❌ Service test failed:', serviceError);
       }
       
-      // 3. Update booking status to checked-out (StatusId = 4)
-      const bookingService = new BookingService();
-      await bookingService.checkoutBooking(bookingId);
-      
-      // 4. Refresh data
-      await get().fetchCheckedInBookings();
-      
-      set({ 
-        isProcessing: false,
-        selectedBooking: null,
-        showPaymentDialog: false,
-        paymentAmount: 0
-      });
-      
-      // Show success message (you might want to use a toast notification)
-      console.log('เช็คเอาท์สำเร็จ');
+      console.log('🔧 Store debug completed');
       
     } catch (error) {
-      console.error('Error during checkout:', error);
-      set({ 
-        error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการเช็คเอาท์',
-        isProcessing: false 
-      });
+      console.error('❌ Store debug failed:', error);
     }
   },
-
-  // Get filtered bookings based on search
-  getFilteredBookings: () => {
-    const { checkedInBookings, searchValue } = get();
-    
-    if (!searchValue.trim()) {
-      return checkedInBookings;
-    }
-    
-    const search = searchValue.toLowerCase().trim();
-    return checkedInBookings.filter(booking => 
-      booking.BookingId.toString().includes(search) ||
-      booking.RoomId.toString().includes(search) ||
-      booking.customer?.CustomerName?.toLowerCase().includes(search) ||
-      booking.room?.roomType?.TypeName?.toLowerCase().includes(search)
-    );
+  
+  reset: () => {
+    console.log('🔄 Store: Resetting check-out store');
+    set({  
+      isVisible: false,
+      isSubmitting: false,
+      selectedItem: null,
+      filters: {}
+    });
   },
-
-  // Get bookings that should checkout today
-  getTodayCheckouts: () => {
-    const { checkedInBookings } = get();
-    const today = new Date().toDateString();
-    
-    return checkedInBookings.filter(booking => 
-      new Date(booking.CheckoutDate).toDateString() === today
-    );
+  
+  resetForm: () => {
+    console.log('🔄 Store: Resetting check-out form');
+    set({ 
+      isFormVisible: false,
+      isSubmitting: false,
+      selectedItem: null 
+    });
   }
 }));
+
+// ===== CRITICAL: Proper Export =====
+export { useCheckOutStore };
+
+// ===== Additional Debug Export =====
+export const checkOutStoreActions = {
+  getState: () => useCheckOutStore.getState(),
+  debug: () => useCheckOutStore.getState().debug(),
+  forceRefresh: () => useCheckOutStore.getState().fetchItems()
+};
+
+// ===== Type Export =====
+export type { CheckOutState };

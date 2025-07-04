@@ -42,7 +42,6 @@ import { MESSAGES } from '../../../libs/constants/messages.constant'
 import { Booking } from '@core/domain/models/booking/list.model'
 import { BookingStatus } from '@core/domain/models/booking/booking-status/list.model'
 
-// Define types for fuzzy filter
 declare module '@tanstack/table-core' {
   interface FilterFns {
     fuzzy: FilterFn<unknown>
@@ -52,17 +51,14 @@ declare module '@tanstack/table-core' {
   }
 }
 
-// Fuzzy filter implementation
 const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
   // Rank the item
   const itemRank = rankItem(row.getValue(columnId), value)
 
-  // Store the itemRank info
   addMeta({
     itemRank
   })
 
-  // Return if the item should be filtered in/out
   return itemRank.passed
 }
 
@@ -71,41 +67,38 @@ const formatDate = (date: string | Date): string => {
   if (!date) return 'N/A';
   
   const d = new Date(date);
-  return d.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  return d.toLocaleDateString('en-GB'); 
 }
 
 interface BookingTableProps {
-  data: Booking[] // Use actual type
+  data: Booking[]
   loading: boolean
-  onEdit: (item: Booking) => void
-  onConfirm?: (item: Booking) => Promise<void> // เพิ่ม prop สำหรับการยืนยันการจอง
+  onConfirm?: (item: Booking) => Promise<void>
+  onCheckin?: (item: Booking) => Promise<void>
+  onCancel?: (item: Booking) => Promise<void>
+  onDelete?: (item: Booking) => Promise<void>
   currentUserRole: number
   bookingStatuses?: BookingStatus[]
 }
 
-// Column Definitions
 const columnHelper = createColumnHelper<Booking>()
 
 const BookingTable: React.FC<BookingTableProps> = ({ 
   data, 
   loading, 
-  onEdit, 
-  onConfirm, // เพิ่ม prop
+  onConfirm,
+  onCheckin,
+  onCancel,
+  onDelete,
   currentUserRole,
   bookingStatuses = []
 }) => {
-  // States for filtering
+
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [bookingToDelete, setBookingToDelete] = useState<number | null>(null)
-  const [localData, setLocalData] = useState<Booking[]>([])
-  
-  // Update local data when prop data changes
-  useEffect(() => {
-    setLocalData(data);
-  }, [data]);
+  const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null)
 
   // Status mapping
   const statusMap = useMemo(() => {
@@ -116,77 +109,80 @@ const BookingTable: React.FC<BookingTableProps> = ({
     return map;
   }, [bookingStatuses]);
 
-  // เรียงลำดับข้อมูลให้รายการล่าสุดอยู่บนสุด
   const sortedData = useMemo(() => {
-    if (!localData || localData.length === 0) return [];
+    if (!data || data.length === 0) return [];
     
-    // คัดลอกข้อมูลเพื่อไม่ให้กระทบข้อมูลต้นฉบับ
-    const dataCopy = [...localData];
+    const dataCopy = [...data];
     
     // เรียงลำดับตาม BookingId (ใหม่ไปเก่า)
     return dataCopy.sort((a, b) => {
-      // ตรวจสอบว่ามี BookingId หรือไม่
       const aId = a.BookingId || 0;
       const bId = b.BookingId || 0;
       
       // เรียงจากมากไปน้อย (ล่าสุดอยู่บนสุด)
       return bId - aId;
     });
-  }, [localData]);
+  }, [data]);
 
-  // Get delete function from store
-  const { delete: deleteBooking } = useBookingStore();
-  
-  // Handlers
-  const handleEdit = (item: any) => {
-    onEdit(item);
-  }
-
-  // แก้ไขให้ handleDeleteClick เป็น async function ที่คืนค่า Promise<void>
-  const handleDeleteClick = async (id: number): Promise<void> => {
-    // Check permission based on role
-    const hasDeletePermission = currentUserRole === 1 || currentUserRole === 4; // Admin or Manager
-    
-    if (!hasDeletePermission) {
-      toast.error('ທ່ານບໍ່ມີສິດໃນການລຶບຂໍ້ມູນ');
-      return Promise.resolve(); // คืนค่า Promise ที่ resolved แล้ว
-    }
-    
-    setBookingToDelete(id);
-    setDeleteDialogOpen(true);
-    return Promise.resolve(); // คืนค่า Promise ที่ resolved แล้ว
-  }
-
-  // เพิ่มฟังก์ชันสำหรับการยืนยันการจอง
+  // Handlers - ใช้ ID เพื่อให้ตรงกับ store
   const handleConfirmBooking = async (booking: Booking): Promise<void> => {
     try {
       if (onConfirm) {
         await onConfirm(booking);
-        // อัปเดต localData เพื่อแสดงการเปลี่ยนแปลงทันที
-        setLocalData(prevData => 
-          prevData.map(item => 
-            item.BookingId === booking.BookingId
-              ? { ...item, StatusId: 3 } // เปลี่ยนสถานะเป็น "เช็คอินแล้ว"
-              : item
-          )
-        );
+        toast.success('ຢືນຢັນການຈອງແລ້ວ');
       }
     } catch (error) {
       console.error('Error confirming booking:', error);
       toast.error('ເກີດຂໍ້ຜິດພາດໃນການຢືນຢັນການຈອງ');
-      throw error; // ส่งต่อ error เพื่อให้ component ที่เรียกใช้จัดการได้
+      throw error; 
     }
   };
 
+  const handleCheckinBooking = async (booking: Booking): Promise<void> => {
+    try {
+      if (onCheckin) {
+        await onCheckin(booking);
+        toast.success('ເຊັກອິນສໍາເລັດແລ້ວ');
+      }
+    } catch (error) {
+      console.error('Error checking in booking:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການເຊັກອິນ');
+      throw error;
+    }
+  };
+
+  const handleCancelBooking = async (booking: Booking): Promise<void> => {
+    try {
+      if (onCancel) {
+        await onCancel(booking);
+        toast.success('ຍົກເລີກການຈອງສໍາເລັດແລ້ວ');
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການຍົກເລີກ');
+      throw error;
+    }
+  };
+
+  const handleDeleteClick = async (booking: Booking): Promise<void> => {
+    const hasDeletePermission = currentUserRole === 1 || currentUserRole === 4; // Admin or Manager
+    
+    if (!hasDeletePermission) {
+      toast.error('ທ່ານບໍ່ມີສິດໃນການລຶບຂໍ້ມູນ');
+      return Promise.resolve(); 
+    }
+    
+    setBookingToDelete(booking);
+    setDeleteDialogOpen(true);
+    return Promise.resolve();
+  }
+
   const handleDeleteConfirm = async () => {
-    if (bookingToDelete === null) return;
+    if (!bookingToDelete || !onDelete) return;
     
     try {
       setIsDeleting(true);
-      await deleteBooking(bookingToDelete);
-      
-      // Update local state to remove the deleted booking
-      setLocalData(prevData => prevData.filter(booking => booking.BookingId !== bookingToDelete));
+      await onDelete(bookingToDelete);
       
       setDeleteDialogOpen(false);
       setBookingToDelete(null);
@@ -194,22 +190,14 @@ const BookingTable: React.FC<BookingTableProps> = ({
     } catch (error: any) {
       console.error('Error deleting booking:', error);
       
-      // Check if it's a 404 error (not found)
       if (error.response && error.response.status === 404) {
         toast.error(`ບໍ່ພົບຂໍ້ມູນການຈອງ: ${error.response.data.message || 'Booking not found'}`);
-        
-        // Remove the item from local data if it's not found in the backend
-        // This ensures UI consistency even if the backend can't find the record
-        setLocalData(prevData => prevData.filter(booking => booking.BookingId !== bookingToDelete));
       } else if (error.message && typeof error.message === 'string') {
-        // Display the specific error message if available
         toast.error(`ເກີດຂໍ້ຜິດພາດ: ${error.message}`);
       } else {
-        // Fallback to generic error message
         toast.error(MESSAGES.ERROR.DELETE);
       }
       
-      // If the booking was not found, we should close the dialog anyway
       if (error.response && error.response.status === 404) {
         setDeleteDialogOpen(false);
         setBookingToDelete(null);
@@ -222,7 +210,6 @@ const BookingTable: React.FC<BookingTableProps> = ({
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setBookingToDelete(null);
-    toast.info(MESSAGES.SUCCESS.CANCElED);
   }
 
   // Function to get status text based on ID, using the status map from backend
@@ -234,8 +221,8 @@ const BookingTable: React.FC<BookingTableProps> = ({
     
     // Fallback to hardcoded values if not found in map
     switch (statusId) {
-      case 1: return 'ວ່າງພ້ອມໃຊ້ງານ';
-      case 2: return 'ຈອງແລ້ວ';
+      case 1: return 'ລໍຖ້າຢືນຢັນ';
+      case 2: return 'ຢືນຢັນແລ້ວ';
       case 3: return 'ເຊັກອິນແລ້ວ';
       case 4: return 'ຊຳລະເງິນແລ້ວ';
       case 5: return 'ຍົກເລີກການຈອງ';
@@ -336,7 +323,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
           );
         }
       }),
-      // Actions column for edit, confirm and delete
+      // Actions column for confirm, checkin, cancel and delete
       {
         id: 'actions',
         header: () => (
@@ -345,24 +332,24 @@ const BookingTable: React.FC<BookingTableProps> = ({
         cell: ({ row }) => {
           const booking = row.original;
           
-          // ใช้ BookingActionButtons component
           return (
             <BookingActionButtons
               booking={booking}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick} // ตอนนี้เป็น async function ที่คืนค่า Promise<void> แล้ว
               onConfirm={handleConfirmBooking}
+              onCheckin={handleCheckinBooking}
+              onCancel={handleCancelBooking}
+              onDelete={(id: number) => handleDeleteClick(booking)} // แปลง signature ให้ตรงกับ BookingActionButtons
               currentUserRole={currentUserRole}
             />
           );
         }
       }
     ],
-    [currentUserRole, onEdit, handleEdit, handleDeleteClick, statusMap, handleConfirmBooking]
+    [currentUserRole, statusMap, handleConfirmBooking, handleCheckinBooking, handleCancelBooking, handleDeleteClick]
   );
 
   const table = useReactTable({
-    data: sortedData, // ใช้ sortedData แทน data
+    data: sortedData,
     columns,
     filterFns: {
       fuzzy: fuzzyFilter

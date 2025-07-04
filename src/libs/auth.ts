@@ -51,7 +51,7 @@ export const authOptions: NextAuthOptions = {
           console.log("Login response:", data);
 
           // ตรวจสอบประเภทผู้ใช้จาก response
-          // หากในข้อมูลไม่มีฟิลด์ type ให้ดูจากฟิลด์อื่นๆ เช่น user ID
+          // หากไม่มีฟิลด์ type ให้ดูจากฟิลด์อื่นๆ เช่น user ID
           // เช่น ถ้ามี StaffId จะถือว่าเป็น staff, ถ้ามี CustomerId จะถือว่าเป็น customer
           let userType;
 
@@ -69,7 +69,7 @@ export const authOptions: NextAuthOptions = {
 
           // ข้อมูลที่จะส่งกลับเข้าสู่ NextAuth
           return {
-            id: String(data.data.user?.id || data.data.user?.StaffId || data.data.StaffId || '1'),
+            id: String(data.data.user?.id || data.data.user?.StaffId || data.data.user?.CustomerId || '1'),
             name: data.data.user?.userName || data.data.userName || userName,
             email: `${userName}@example.com`,
             accessToken: data.data.accessToken,
@@ -77,6 +77,7 @@ export const authOptions: NextAuthOptions = {
             role: data.data.user?.role || 'user',
             userName: data.data.user?.userName || data.data.userName || userName,
             roleId: data.data.user?.roleId || null,
+            customerId: data.data.user?.CustomerId || data.data.CustomerId || null,
             type: userType // เพิ่มข้อมูลประเภทผู้ใช้
           }
         } catch (e: any) {
@@ -113,6 +114,7 @@ export const authOptions: NextAuthOptions = {
         token.roleId = user.roleId;
         token.userName = user.userName;
         token.type = user.type;
+        token.customerId = user.customerId;
       }
 
       // ตรวจสอบว่า token ใกล้หมดอายุหรือไม่ (ถ้าต้องการทำ refresh token)
@@ -144,7 +146,8 @@ export const authOptions: NextAuthOptions = {
         session.user.userName = token.userName as string;
         session.user.id = token.sub as string;
         session.user.roleId = token.roleId as number | null;
-        session.user.type = token.type as string; 
+        session.user.type = token.type as string;
+        session.user.customerId = token.customerId as number | null;
       }
 
       return session;
@@ -221,10 +224,11 @@ declare module "next-auth" {
       image?: string | null;
       accessToken?: string;
       refreshToken?: string;
-      role?: string;
+      // role?: string;
       roleId?: number | null;
       userName?: string;
       type?: string;
+      customerId?: number | null;
     }
   }
 
@@ -235,10 +239,11 @@ declare module "next-auth" {
     image?: string | null;
     accessToken?: string;
     refreshToken?: string;
-    role?: string;
+    // role?: string;
     userName?: string;
     roleId?: number | null;
-    type?: string;
+    // type?: string;
+    customerId?: number | null;
   }
 }
 
@@ -250,6 +255,7 @@ declare module "next-auth/jwt" {
     roleId?: number | null;
     userName?: string;
     type?: string;
+    customerId?: number | null;
     exp?: number;
     error?: string;
   }

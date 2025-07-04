@@ -196,7 +196,7 @@ const CustomerFormInput = ({ visible, onHide, selectedItem, onSaved }: CustomerF
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    label='ລະຫັດໄປສະນີ'
+                    label='ລະຫັດພັດສະປອດ'
                     type='number'
                     fullWidth
                     error={Boolean(errors.CustomerPostcode)}

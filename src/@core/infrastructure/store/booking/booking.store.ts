@@ -66,12 +66,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   })),
   
   removeItem: (id: number) => set((state) => ({
-    items: state.items.filter((item) => item.id !== id)
+    items: state.items.filter((item) => item.BookingId !== id)
   })),
   
   updateItem: (id: number, updatedItem: Booking) => set((state) => ({
     items: state.items.map((item) => 
-      item.id === id ? { ...item, ...updatedItem } : item
+      item.BookingId === id ? { ...item, ...updatedItem } : item
     )
   })),
   
@@ -115,7 +115,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
   fetchBookingById: async (id: number) => {
     try {
       // ตรวจสอบว่ามีข้อมูลใน store แล้วหรือไม่
-      const existingBooking = get().items.find(booking => booking.id === id);
+      const existingBooking = get().items.find(booking => booking.BookingId === id);
       if (existingBooking) {
         return existingBooking;
       }
@@ -143,7 +143,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       setLoading(true);
       
       const createResponse = await bookingService.create(data as any);
-      const completeItem = await bookingService.getOne(createResponse.id);
+      const completeItem = await bookingService.getOne(createResponse.BookingId);
       
       get().addItem(completeItem);
       

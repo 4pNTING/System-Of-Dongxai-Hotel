@@ -139,7 +139,7 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
     // ตัด whitespace ของ userName
     const trimmedUserName = data.userName.trim();
     
-    console.log("Attempting login with:", { userName: trimmedUserName, password: data.password });
+    console.log("Attempting login with 1:", { userName: trimmedUserName, password: data.password });
     
     const res = await signIn('credentials', {
       userName: trimmedUserName,
@@ -152,11 +152,13 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
     if (res && res.ok && !res.error) {
       // ดึงข้อมูล session เพื่อตรวจสอบประเภทผู้ใช้
       const session = await getSession();
+      console.log("Session after login:", session);
+      console.log("CustomerId:", session?.user?.customerId);
       
       // กำหนดหน้าที่จะนำทางไปตามประเภทผู้ใช้
       let redirectURL;
       
-      if (session?.user?.type === 'customer') {
+      if (session?.user?.roleId === 1) {
         // ถ้าเป็น customer นำทางไปยังหน้า home
         redirectURL = '/home';
       } else {

@@ -1,18 +1,10 @@
-// views/apps/components/customer/Navbar.tsx
 'use client'
 
-// MUI Imports
 import { useTheme } from '@mui/material/styles'
 import AppBar from '@mui/material/AppBar'
-
-// Third-party Imports
 import classnames from 'classnames'
 import type { CSSObject } from '@emotion/styled'
-
-// Type Imports
 import type { ChildrenType } from '@core/types'
-
-// Util Imports
 import { verticalLayoutClasses } from '@layouts/utils/layoutClasses'
 
 type Props = ChildrenType & {
@@ -20,13 +12,9 @@ type Props = ChildrenType & {
 }
 
 const Navbar = (props: Props) => {
-  // Props
   const { children, overrideStyles } = props
-
-  // Hooks
   const theme = useTheme()
 
-  // Define header style properties - these would normally come from your theme config
   const headerFixed = true
   const headerFloating = false
   const headerDetached = true
@@ -36,10 +24,17 @@ const Navbar = (props: Props) => {
 
   return (
     <AppBar
-      position="static"
-      color="default"
-      elevation={3}
-      sx={overrideStyles}
+      position="fixed"
+      color="transparent"
+      elevation={0}
+      sx={{
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(212, 133, 28, 0.1)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        zIndex: 1100,
+        ...overrideStyles
+      }}
       className={classnames(verticalLayoutClasses.header, {
         [verticalLayoutClasses.headerFixed]: headerFixed,
         [verticalLayoutClasses.headerFloating]: headerFloating,
@@ -49,7 +44,9 @@ const Navbar = (props: Props) => {
         [verticalLayoutClasses.headerContentWide]: headerContentWide
       })}
     >
-      <div className={classnames(verticalLayoutClasses.navbar, 'flex bs-full')}>{children}</div>
+      <div className={classnames(verticalLayoutClasses.navbar, 'flex bs-full')}>
+        {children}
+      </div>
     </AppBar>
   )
 }

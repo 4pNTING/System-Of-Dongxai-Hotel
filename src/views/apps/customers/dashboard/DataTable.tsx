@@ -216,7 +216,7 @@ const CustomerDataTable = ({ data, filters, onEdit, onDelete, loading = false, c
         cell: ({ row }) => <Typography align='center'>{row.original.CustomerAddress || '-'}</Typography>
       }),
       columnHelper.accessor('CustomerPostcode', {
-        header: () => <div className='text-center font-medium text-base'>ລະຫັດໄປສະນີ</div>,
+        header: () => <div className='text-center font-medium text-base'>ລະຫັດພັດສະປອດ</div>,
         cell: ({ row }) => <Typography align='center'>{row.original.CustomerPostcode || '-'}</Typography>
       }),
       columnHelper.accessor('userName', {

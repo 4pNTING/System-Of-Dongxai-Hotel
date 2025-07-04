@@ -1,36 +1,34 @@
-// src/views/apps/checkin/CheckinSearch.tsx
-import React from 'react';
-import { Box, InputAdornment } from '@mui/material';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
+import Box from '@mui/material/Box';
 
-// Vuexy Components
-import CustomTextField from '@core/components/mui/TextField';
-
-interface CheckinSearchProps {
+interface CheckInSearchProps {
   value: string;
-  onChange: (value: string) => void;
+  onFilterChange: (value: string) => void;
+  placeholder?: string;
 }
 
-export const CheckinSearch: React.FC<CheckinSearchProps> = ({ value, onChange }) => {
+export const CheckInSearch = ({ 
+  value, 
+  onFilterChange, 
+  placeholder = "ຄົ້ນຫາດ້ວຍລະຫັດເຊັກອິນ, ຫ້ອງພັກ ຫຼື ລູກຄ້າ"
+}: CheckInSearchProps) => {
   return (
-    <Box sx={{ mb: 4 }}>
-      <CustomTextField
-        fullWidth
-        placeholder="ຄົ້ນຫາດ້ວຍເລກທີ່ການຈອງ, ເລກຫ້ອງ, ຊື່ລູກຄ້າ..."
+    <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
+      <TextField
+        size="small"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onFilterChange(e.target.value)}
+        placeholder={placeholder}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary' }} />
+              <SearchIcon fontSize="small" />
             </InputAdornment>
-          ),
+          )
         }}
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            backgroundColor: 'background.paper',
-          }
-        }}
+        sx={{ minWidth: '280px' }}
       />
     </Box>
   );

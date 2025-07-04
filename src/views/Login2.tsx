@@ -138,7 +138,7 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
     // ตัด whitespace ทั้งหมดที่อยู่ด้านหน้าและด้านหลัง userName
     const trimmedUserName = data.userName.trim();
     
-    console.log("Attempting login with:", { userName: trimmedUserName, password: data.password });
+    console.log("Attempting login with 1:", { userName: trimmedUserName, password: data.password });
     
     const res = await signIn('credentials', {
       // ส่ง userName ที่ trim แล้ว

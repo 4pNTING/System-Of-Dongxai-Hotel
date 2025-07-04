@@ -1,407 +1,308 @@
-// src/views/apps/checkin/CheckinPage.tsx (Fixed)
+// src/app/(dashboard)/checkins/page.tsx (Updated - Remove Checkout Functions)
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import {
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  CircularProgress,
-} from '@mui/material';
+import { toast } from 'react-toastify';
 
-// Vuexy Components
-import CustomTextField from '@core/components/mui/TextField';
-import CustomChip from '@core/components/mui/Chip';
+// MUI Imports
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 
-import { CheckinSearch } from '@views/apps/checkin/CheckinSearch';
-import { CheckinCard } from '@views/apps/checkin/CheckinCard';
-import { CheckinConfirmDialog } from '@views/apps/checkin/CheckinConfirmDialog';
-import { CancelBookingDialog } from '@views/apps/checkin/CancelBookingDialog';
+// Component Imports
+import { CheckInSearch } from '@/views/apps/checkin/CheckinSearch';
+import CheckInTable from '@views/apps/checkin/CheckInTable';
+import CheckInCards from '@views/apps/checkin/CheckinCard';
+import { DateRangePicker } from '@views/apps/checkin/DateRangePicker';
 
-// Fixed import path
+// Store Imports
+import { useCheckInStore } from '@core/infrastructure/store/checkin/checkin.store';
 import { useBookingStore } from '@core/infrastructure/store/booking/booking.store';
-import { Booking } from '@core/domain/models/booking/list.model';
 
-// Types for NextAuth
-interface SessionUser {
-  id: string;
-  userName: string;
-  roleId: number;
-  role: string;
-}
-
-declare module 'next-auth' {
-  interface Session {
-    user: SessionUser;
-  }
-}
-
-export default function CheckinPage() {
+export default function CheckInPage() {
+  const { 
+    items: checkIns,
+    stats,
+    fetchItems: fetchCheckIns,
+    fetchStats,
+    checkinBooking,
+    delete: deleteCheckIn,
+    isLoading: checkInLoading
+  } = useCheckInStore();
+  
   const {
-    confirmedBookings,
-    isLoading,
-    searchValue,
-    selectedBooking,
-    isProcessing,
-    setSearchValue,
-    setSelectedBooking,
-    fetchConfirmedBookings,
-    processCheckin,
-    getFilteredBookings,
-    getTodayCheckIns
-  } = useCheckinStore();
+    items: bookings,
+    fetchItems: fetchBookings,
+    cancel: cancelBooking,
+    isLoading: bookingLoading
+  } = useBookingStore();
   
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [bookingToCancel, setBookingToCancel] = useState<Booking | null>(null);
+  const [searchValue, setSearchValue] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
-  // Session management
   const { data: session, status } = useSession();
   const isLoadingAuth = status === 'loading';
   
-  const userRoleId = session?.user?.roleId ?? 0;
-  
-  // Helper function to get role name
-  const getRoleText = (roleId: number): string => {
-    const roles: Record<number, string> = {
-      1: 'ຜູ້ດູແລລະບົບ',
-      2: 'ພະນັກງານຕ້ອນຮັບ', 
-      3: 'ພະນັກງານທົ່ວໄປ',
-      4: 'ຜູ້ຈັດການ'
-    };
-    return roles[roleId] || 'ບໍ່ຮູ້';
-  };
+  const userRoleId = session?.user?.roleId ?  
+    (typeof session.user.roleId === 'string' ? parseInt(session.user.roleId, 10) : session.user.roleId) : 0;
 
-  // Load data on component mount
-  useEffect(() => {
-    fetchConfirmedBookings();
-  }, [fetchConfirmedBookings]);
-
-  // Get filtered data
-  const filteredBookings = getFilteredBookings();
-  const todayCheckIns = getTodayCheckIns();
-  
-  // Calculate today's check-ins manually to ensure accuracy
-  const calculateTodayCheckIns = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    return filteredBookings.filter(booking => {
-      try {
-        const checkinDate = new Date(booking.CheckinDate);
-        checkinDate.setHours(0, 0, 0, 0);
-        return today.getTime() === checkinDate.getTime();
-      } catch {
-        return false;
-      }
-    });
-  };
-  
-  const todayCheckInsCount = calculateTodayCheckIns().length;
-
-  // Debug log
-  console.log('Debug CheckinPage:', {
-    confirmedBookings: confirmedBookings.length,
-    filteredBookings: filteredBookings.length,
-    todayCheckIns: todayCheckIns.length,
-    todayCheckInsCount,
-    today: new Date().toDateString(),
-    bookings: filteredBookings.map(b => ({
-      id: b.BookingId,
-      status: b.StatusId,
-      checkinDate: new Date(b.CheckinDate).toDateString(),
-      isToday: new Date().toDateString() === new Date(b.CheckinDate).toDateString()
-    }))
+  // กรองข้อมูล Check-ins และ Bookings ที่เกี่ยวข้อง
+  const relevantBookings = bookings.filter(booking => {
+    // แสดงเฉพาะ booking ที่ยืนยันแล้ว (StatusId: 2)
+    return booking.StatusId === 2;
   });
 
+  // รวมข้อมูล check-ins และ relevant bookings
+  const allItems = [
+    // แสดงเฉพาะ check-ins ที่กำลังพัก (ยังไม่ checkout)
+    ...checkIns
+      .filter(checkIn => !checkIn.checkOuts || checkIn.checkOuts.length === 0)
+      .map(checkIn => ({
+        ...checkIn,
+        type: 'checkin' as const,
+        status: 'checked_in'
+      })),
+    // แสดงเฉพาะ bookings ที่ยังไม่ได้ check-in
+    ...relevantBookings
+      .filter(booking => !checkIns.some(checkIn => checkIn.BookingId === booking.BookingId))
+      .map(booking => ({
+        ...booking,
+        type: 'booking' as const,
+        status: 'confirmed'
+      }))
+  ];
+
+  // กรองตามค้นหาและวันที่
+  const filteredItems = allItems.filter(item => {
+    // กรองตาม search
+    const roomId = item.RoomId ? String(item.RoomId) : '';
+    const roomName = item.room?.roomType?.TypeName || '';
+    const customerName = item.customer?.CustomerName || '';
+    const itemId = item.type === 'checkin' ? String(item.CheckInId) : String(item.BookingId);
+
+    const matchesSearch = !searchValue ||
+      itemId.includes(searchValue) ||
+      roomId.includes(searchValue) ||
+      roomName.toLowerCase().includes(searchValue.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchValue.toLowerCase());
+
+    // กรองตามวันที่
+    let matchesDate = true;
+    if (startDate && endDate) {
+      const itemDate = item.type === 'checkin' 
+        ? new Date(item.CheckInDate)
+        : new Date(item.CheckinDate);
+      const filterStartDate = new Date(startDate);
+      const filterEndDate = new Date(endDate);
+
+      itemDate.setHours(0, 0, 0, 0);
+      filterStartDate.setHours(0, 0, 0, 0);
+      filterEndDate.setHours(23, 59, 59, 999);
+
+      matchesDate = itemDate >= filterStartDate && itemDate <= filterEndDate;
+    }
+
+    return matchesSearch && matchesDate;
+  });
+
+  // นับจำนวนตามสถานะ
+  const readyToCheckinCount = filteredItems.filter(item => 
+    item.type === 'booking' && item.status === 'confirmed'
+  ).length;
+  
+  const checkedInCount = filteredItems.filter(item => 
+    item.type === 'checkin' && item.status === 'checked_in'
+  ).length;
+
   // Handlers
-  const handleCheckinClick = (booking: Booking) => {
-    console.log('Selected booking for check-in:', {
-      id: booking.BookingId,
-      status: booking.StatusId,
-      customer: booking.customer?.CustomerName
-    });
-    setSelectedBooking(booking);
-    setDialogOpen(true);
-  };
-
-  const handleCheckinConfirm = async () => {
-    if (!selectedBooking) return;
-    
+  const handleCheckinBooking = async (item: any) => {
     try {
-      console.log('Processing check-in for booking:', selectedBooking.BookingId);
-      await processCheckin(selectedBooking.BookingId);
-      setDialogOpen(false);
+      toast.info('ກຳລັງດຳເນີນການເຊັກອິນ...');
       
-      // Refresh data after successful check-in
-      setTimeout(() => {
-        fetchConfirmedBookings();
-      }, 1000);
-    } catch (error) {
-      console.error('Check-in failed:', error);
-      // Error is handled in the store
+      const bookingId = item.type === 'booking' ? item.BookingId : item.BookingId;
+      await checkinBooking(bookingId);
+      
+      toast.success('ເຊັກອິນສໍາເລັດແລ້ວ');
+      
+      // Refresh ข้อมูล
+      await Promise.all([fetchCheckIns(), fetchBookings(), fetchStats()]);
+      
+    } catch (error: any) {
+      console.error('Error checking in:', error);
+      
+      if (error.message?.includes('already been checked in')) {
+        toast.warning('Booking ນີ້ໄດ້ຖືກເຊັກອິນໄປແລ້ວ');
+        await Promise.all([fetchCheckIns(), fetchBookings()]);
+      } else {
+        toast.error('ເກີດຂໍ້ຜິດພາດໃນການເຊັກອິນ: ' + (error.message || 'Unknown error'));
+      }
     }
   };
 
-  const handleCheckinCancel = () => {
-    setDialogOpen(false);
-    setSelectedBooking(null);
-  };
-
-  // Cancel booking handlers
-  const handleCancelClick = (booking: Booking) => {
-    console.log('Selected booking for cancellation:', booking.BookingId);
-    setBookingToCancel(booking);
-    setCancelDialogOpen(true);
-  };
-
-  const handleCancelConfirm = async (reason: string, refundAmount?: number) => {
-    if (!bookingToCancel) return;
-    
+  const handleCancel = async (item: any) => {
     try {
-      console.log('Cancelling booking:', {
-        bookingId: bookingToCancel.BookingId,
-        reason,
-        refundAmount
-      });
+      toast.info('ກຳລັງດຳເນີນການຍົກເລີກ...');
       
-      // TODO: Implement actual cancel booking API call
-      // await cancelBookingService.cancel(bookingToCancel.BookingId, reason, refundAmount);
+      if (item.type === 'booking') {
+        await cancelBooking(item.BookingId);
+      } else {
+        toast.error('ບໍ່ສາມາດຍົກເລີກການເຊັກອິນທີ່ດຳເນີນການແລ້ວໄດ້');
+        return;
+      }
       
-      setCancelDialogOpen(false);
-      setBookingToCancel(null);
+      toast.success('ຍົກເລີກສໍາເລັດແລ້ວ');
       
-      // Refresh data after cancellation
-      fetchConfirmedBookings();
-    } catch (error) {
-      console.error('Error cancelling booking:', error);
+      // Refresh ข้อมูล
+      await Promise.all([fetchCheckIns(), fetchBookings()]);
+      
+    } catch (error: any) {
+      console.error('Error cancelling:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການຍົກເລີກ: ' + (error.message || 'Unknown error'));
     }
   };
 
-  const handleCancelDialogClose = () => {
-    setCancelDialogOpen(false);
-    setBookingToCancel(null);
+  const handleDelete = async (item: any) => {
+    try {
+      if (window.confirm('ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບລາຍການນີ້?')) {
+        toast.info('ກຳລັງດຳເນີນການລົບ...');
+        
+        if (item.type === 'checkin') {
+          await deleteCheckIn(item.CheckInId);
+        } else {
+          toast.error('ບໍ່ສາມາດລົບ Booking ໄດ້ຈາກໜ້ານີ້');
+          return;
+        }
+        
+        toast.success('ລົບສໍາເລັດແລ້ວ');
+        await fetchCheckIns();
+      }
+    } catch (error: any) {
+      console.error('Error deleting:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການລົບ: ' + (error.message || 'Unknown error'));
+    }
   };
 
-  // Loading state
+  // Event handlers
+  const handleFilterChange = (value: string) => setSearchValue(value);
+  
+  const handleStartDateChange = (date: string) => {
+    setStartDate(date);
+    if (endDate && date > endDate) {
+      setEndDate(date);
+    }
+  };
+  
+  const handleEndDateChange = (date: string) => setEndDate(date);
+  
+  const handleClearFilter = () => {
+    setStartDate('');
+    setEndDate('');
+  };
+  
+  const hasDateFilter = Boolean(startDate && endDate);
+  
+  useEffect(() => {
+    console.log("Loading check-in and booking data...");
+    Promise.all([
+      fetchCheckIns(),
+      fetchBookings(),
+      fetchStats()
+    ]);
+  }, [fetchCheckIns, fetchBookings, fetchStats]);
+  
   if (isLoadingAuth) {
     return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          minHeight: '80vh',
-          flexDirection: 'column',
-          gap: 2
-        }}
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
         <CircularProgress size={40} />
-        <Typography variant="body1" color="text.secondary">
-          ກຳລັງກວດສອບສິດການໃຊ້ງານ...
-        </Typography>
+        <Typography sx={{ ml: 2 }}>ກຳລັງກວດສອບສິດການໃຊ້ງານ...</Typography>
       </Box>
     );
   }
-
-  // Handle unauthenticated state
-  if (status === 'unauthenticated') {
-    return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          minHeight: '80vh',
-          flexDirection: 'column',
-          gap: 2
-        }}
-      >
-        <Typography variant="h6" color="error">
-          ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ
-        </Typography>
-      </Box>
-    );
-  }
-
+  
   return (
-    <Grid container spacing={6}>
-      <Grid item xs={12}>
-        {/* Page Header - Vuexy Style */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" sx={{ mb: 1, fontWeight: 500 }}>
-            ລະບົບເຊັກອິນ
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            ຈັດການການເຊັກອິນສຳລັບການຈອງທີ່ຢືນຢັນແລ້ວ
-          </Typography>
-          
-          {/* User Role Chip */}
-          <CustomChip
-            label={`${getRoleText(userRoleId)} (ID: ${userRoleId})`}
-            size="small"
-            variant="tonal"
-            color="primary"
-          />
-        </Box>
-
-        {/* Search Component */}
-        <CheckinSearch 
-          value={searchValue}
-          onChange={setSearchValue}
-        />
-
-        {/* Summary Cards */}
-        <Grid container spacing={4} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <Box
-                    sx={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: '50%',
-                      bgcolor: 'primary.main',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'common.white'
-                    }}
-                  >
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      {filteredBookings.length}
-                    </Typography>
-                  </Box>
-                  
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                      ການຈອງທັງໝົດ
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      ພ້ອມເຊັກອິນ
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} sm={6}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <Box
-                    sx={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: '50%',
-                      bgcolor: 'success.main',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'common.white'
-                    }}
-                  >
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      {todayCheckInsCount}
-                    </Typography>
-                  </Box>
-                  
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                      ເຊັກອິນວັນນີ້
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      ກຳນົດເຊັກອິນມື້ນີ້
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
+      <Grid container spacing={6}>
+        {/* Header Section */}
+        <Grid item xs={12}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h4" fontWeight={600} color="text.primary">
+              ການຈັດການເຊັກອິນ
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              ຈັດການການເຊັກອິນຂອງລູກຄ້າ ແລະ ການຈອງທີ່ພ້ອມເຊັກອິນ
+            </Typography>
+          </Box>
         </Grid>
 
-        {/* Main Content */}
-        {isLoading ? (
-          <Card>
-            <CardContent>
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  alignItems: 'center',
-                  py: 8,
-                  flexDirection: 'column',
-                  gap: 2
-                }}
-              >
-                <CircularProgress />
-                <Typography variant="body1" color="text.secondary">
-                  ກຳລັງໂຫລດຂໍ້ມູນ...
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        ) : filteredBookings.length === 0 ? (
-          <Card>
-            <CardContent>
-              <Box 
-                sx={{ 
-                  textAlign: 'center', 
-                  py: 8,
-                  px: 4
-                }}
-              >
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                  ບໍ່ມີການຈອງທີ່ພ້ອມເຊັກອິນ
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {searchValue ? 'ບໍ່ພົບຜົນການຄົ້ນຫາ' : 'ການຈອງທັງໝົດໄດ້ເຊັກອິນແລ້ວ ຫຼື ຍັງບໍ່ໄດ້ຢືນຢັນ'}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        ) : (
-          <Grid container spacing={4}>
-            {filteredBookings.map((booking) => {
-              const isToday = new Date().toDateString() === new Date(booking.CheckinDate).toDateString();
-              
-              return (
-                <Grid item xs={12} sm={6} lg={4} key={booking.BookingId}>
-                  <CheckinCard 
-                    booking={booking}
-                    isToday={isToday}
-                    onCheckin={handleCheckinClick}
-                    onCancel={handleCancelClick}
-                    isProcessing={isProcessing}
-                  />
-                </Grid>
-              );
-            })}
-          </Grid>
-        )}
+        {/* Statistics Cards */}
+        <Grid item xs={12}>
+          <CheckInCards 
+            totalCount={filteredItems.length}
+            pendingCount={readyToCheckinCount}
+            checkedInCount={checkedInCount}
+            customLabels={{
+              pending: 'ພ້ອມເຊັກອິນ',
+              confirmed: 'ເຊັກອິນແລ້ວ'
+            }}
+          />
+        </Grid>
+
+        {/* Search and Filters Section */}
+        <Grid item xs={12}>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 2, 
+            mb: 3, 
+            flexWrap: 'wrap', 
+            alignItems: 'center',
+            p: 3,
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 1
+          }}>
+            <CheckInSearch
+              value={searchValue}
+              onFilterChange={handleFilterChange}
+              placeholder="ຄົ້ນຫາ Check-in ID, Booking ID, ຫ້ອງ, ຫຼື ລູກຄ້າ..."
+            />
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              onClearFilter={handleClearFilter}
+              hasFilter={hasDateFilter}
+            />
+          </Box>
+
+          {/* Results Summary */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              ພົບ {filteredItems.length} ລາຍການ
+              {hasDateFilter && (
+                <span>
+                  {' '}ໃນຊ່ວງ {new Date(startDate).toLocaleDateString('th-TH')} - {new Date(endDate).toLocaleDateString('th-TH')}
+                </span>
+              )}
+              <span className="ml-4">
+                ({readyToCheckinCount} ພ້ອມເຊັກອິນ, {checkedInCount} ກຳລັງພັກ)
+              </span>
+            </Typography>
+          </Box>
+
+          <CheckInTable
+            data={filteredItems}
+            loading={checkInLoading || bookingLoading}
+            onCheckin={handleCheckinBooking}
+            onCancel={handleCancel}
+            onDelete={handleDelete}
+            currentUserRole={userRoleId}
+          />
+        </Grid>
       </Grid>
-
-      {/* Dialogs */}
-      <CheckinConfirmDialog 
-        open={dialogOpen}
-        booking={selectedBooking}
-        isProcessing={isProcessing}
-        onConfirm={handleCheckinConfirm}
-        onCancel={handleCheckinCancel}
-      />
-
-      <CancelBookingDialog 
-        open={cancelDialogOpen}
-        booking={bookingToCancel}
-        isProcessing={isProcessing}
-        onConfirm={handleCancelConfirm}
-        onCancel={handleCancelDialogClose}
-      />
-    </Grid>
+    </Box>
   );
 }

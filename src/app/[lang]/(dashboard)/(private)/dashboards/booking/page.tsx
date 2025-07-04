@@ -1,3 +1,4 @@
+// src/app/(dashboard)/bookings/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,88 +8,125 @@ import { toast } from 'react-toastify';
 // MUI Imports
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 
 // Component Imports
 import { BookingSeach } from '@/views/apps/booking/BookingSeach';
-import { BookingStatusFilter } from '@views/apps/booking/components/BookingStatusFilter';
 import BookingTable from '@views/apps/booking/BookingTable';
-import BookingFormInput from '@views/apps/booking/components/BookingFormInput';
+import BookingCards from '@views/apps/booking/BookingCards';
+import { BookingDateRangePicker } from '@views/apps/booking/BookingDateRangePicker'; 
 
 // Store Imports
-import { useBookingStore } from '@/@core/infrastructure/store/booking/booking.store';
-import { useBookingStatusStore } from '@/@core/infrastructure/store/booking/booking-status.store';
+import { useBookingStore } from '@core/infrastructure/store/booking/booking.store';
 import { Booking } from '@core/domain/models/booking/list.model';
 
 export default function BookingPage() {
-  const { items, fetchItems, confirmBooking, isLoading: isLoadingBooking } = useBookingStore();
-  const { bookingStatuses, fetchBookingStatuses, isLoading: isLoadingStatus } = useBookingStatusStore();
-  
+  const {
+    items: allBookings,
+    fetchItems,
+    confirmBooking,
+    checkin: checkinBooking,
+    cancel: cancelBooking,
+    delete: deleteBooking,
+    isLoading
+  } = useBookingStore();
+
   const [searchValue, setSearchValue] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [formOpen, setFormOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [confirmingBooking, setConfirmingBooking] = useState(false);
-  
-  // Use useSession hook from next-auth/react
+  const [startDate, setStartDate] = useState(''); // เริ่มต้นแสดงข้อมูลทั้งหมด
+  const [endDate, setEndDate] = useState('');
+
   const { data: session, status } = useSession();
   const isLoadingAuth = status === 'loading';
-  
-  // Get roleId from session (check both string and number)
-  const userRoleId = session?.user?.roleId ?  
+
+  const userRoleId = session?.user?.roleId ?
     (typeof session.user.roleId === 'string' ? parseInt(session.user.roleId, 10) : session.user.roleId) : 0;
-  
-  const handleConfirmBooking = async (booking: Booking) => {
-  try {
-    setConfirmingBooking(true);
-    
-    // แสดงว่ากำลังประมวลผล
-    toast.info('ກຳລັງດຳເນີນການຢືນຢັນການຈອງ...');
-    
-    // เรียกใช้ฟังก์ชันยืนยันการจอง
-    await confirmBooking(booking.BookingId);
-    
-    // แสดงข้อความสำเร็จ
-    toast.success('ຢືນຢັນການຈອງສໍາເລັດແລ້ວ');
-    
-    // โหลดข้อมูลใหม่อีกครั้งเพื่ออัปเดตรายการ
-    fetchItems();
-  } catch (error) {
-    console.error('Error confirming booking:', error);
-    toast.error('ເກີດຂໍ້ຜິດພາດໃນການຢືນຢັນການຈອງ');
-  } finally {
-    setConfirmingBooking(false);
-  }
-};
-  
-  // Debug information
-  useEffect(() => {
-    console.log('SESSION INFO:', {
-      session,
-      status,
-      userRoleId
-    });
-    
-    // Store data in sessionStorage for other components
-    if (session?.user) {
-      sessionStorage.setItem('user', JSON.stringify({
-        id: session.user.id,
-        userName: session.user.userName,
-        roleId: userRoleId,
-        role: session.user.role
-      }));
+
+  // กรองข้อมูลตาม date range และ search
+  const filteredBookings = allBookings.filter(booking => {
+    // กรองตาม search
+    const roomId = booking.RoomId ? String(booking.RoomId) : '';
+    const roomName = booking.room?.roomType?.TypeName || '';
+    const customerName = booking.customer?.CustomerName || '';
+
+    const matchesSearch = !searchValue ||
+      String(booking.BookingId).includes(searchValue) ||
+      roomId.includes(searchValue) ||
+      roomName.toLowerCase().includes(searchValue.toLowerCase()) ||
+      customerName.toLowerCase().includes(searchValue.toLowerCase());
+
+    // กรองตามวันที่
+    let matchesDate = true;
+    if (startDate && endDate) {
+      const bookingDate = new Date(booking.BookingDate);
+      const filterStartDate = new Date(startDate);
+      const filterEndDate = new Date(endDate);
+
+      bookingDate.setHours(0, 0, 0, 0);
+      filterStartDate.setHours(0, 0, 0, 0);
+      filterEndDate.setHours(23, 59, 59, 999);
+
+      matchesDate = bookingDate >= filterStartDate && bookingDate <= filterEndDate;
     }
-  }, [session, status, userRoleId]);
+
+    return matchesSearch && matchesDate;
+  });
+
+  // นับจำนวนตามสถานะ (เฉพาะที่ต้องการ)
+  const pendingCount = filteredBookings.filter(b => b.StatusId === 1).length; // รอการยืนยัน
+  const confirmedCount = filteredBookings.filter(b => b.StatusId === 2).length; // ยืนยันแล้ว
+  const cancelledCount = filteredBookings.filter(b => b.StatusId === 5).length; // ยกเลิก
+
+  // Handlers
+  const handleConfirmBooking = async (booking: Booking) => {
+    try {
+      await confirmBooking(booking.BookingId);
+      toast.success('ຢືນຢັນການຈອງສໍາເລັດແລ້ວ');
+      fetchItems();
+    } catch (error: any) {
+      console.error('Error confirming booking:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການຢືນຢັນ: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleCheckinBooking = async (booking: Booking) => {
+    try {
+    
+      await checkinBooking(booking.BookingId);
+      toast.success('ເຊັກອິນສໍາເລັດແລ້ວ');
+      fetchItems();
+    } catch (error: any) {
+      console.error('Error checking in booking:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການເຊັກອິນ 1: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleCancelBooking = async (booking: Booking) => {
+    try {
   
-  // Load booking statuses
-  useEffect(() => {
-    fetchBookingStatuses();
-  }, [fetchBookingStatuses]);
-  
-  // Helper function to get role name from roleId
+      await cancelBooking(booking.BookingId);
+      toast.success('ຍົກເລີກການຈອງສໍາເລັດແລ້ວ');
+      fetchItems();
+    } catch (error: any) {
+      console.error('Error cancelling booking:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການຍົກເລີກ: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleDeleteBooking = async (booking: Booking) => {
+    try {
+      if (window.confirm('ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບການຈອງນີ້?')) {
+        toast.info('ກຳລັງດຳເນີນການລົບ...');
+        await deleteBooking(booking.BookingId);
+        toast.success('ລົບການຈອງສໍາເລັດແລ້ວ');
+        fetchItems();
+      }
+    } catch (error: any) {
+      console.error('Error deleting booking:', error);
+      toast.error('ເກີດຂໍ້ຜິດພາດໃນການລົບ: ' + (error.message || 'Unknown error'));
+    }
+  };
+
   const getRoleText = (roleId: number) => {
     switch (roleId) {
       case 1: return 'ຜູ້ດູແລລະບົບ';
@@ -98,58 +136,30 @@ export default function BookingPage() {
       default: return 'ບໍ່ຮູ້';
     }
   };
-  
-  // Filtered Items Logic
-  const filteredItems = items ? items.filter(booking => {
-    // Extract room information - handle potential undefined properties safely
-    const roomId = booking.RoomId ? String(booking.RoomId) : '';
-    const roomName = booking.room?.roomType?.TypeName || '';
-    
-    // Extract customer information
-    const customerName = booking.customer?.CustomerName || '';
-    
-    // Search logic
-    const matchesSearch = !searchValue || 
-      String(booking.BookingId).includes(searchValue) || 
-      roomId.includes(searchValue) ||
-      roomName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      customerName.toLowerCase().includes(searchValue.toLowerCase());
-    
-    // Status filter logic - try to match with bookingStatus.StatusName if available
-    const matchesStatus = !statusFilter || 
-      (booking.bookingStatus?.StatusName || '') === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  }) : [];
-  
+
+  const handleFilterChange = (value: string) => setSearchValue(value);
+
+  const handleStartDateChange = (date: string) => {
+    setStartDate(date);
+    if (endDate && date > endDate) {
+      setEndDate(date);
+    }
+  };
+
+  const handleEndDateChange = (date: string) => setEndDate(date);
+
+  const handleClearFilter = () => {
+    setStartDate('');
+    setEndDate('');
+  };
+
+  const hasDateFilter = Boolean(startDate && endDate);
+
   useEffect(() => {
-    console.log("Fetching booking items...");
+    console.log("Loading booking data...");
     fetchItems();
   }, [fetchItems]);
-  
-  // Filter Handlers
-  const handleFilterChange = (value: string) => setSearchValue(value);
-  const handleStatusFilterChange = (value: string) => setStatusFilter(value);
-  
-  // Form Handlers
-  const handleCreate = () => {
-    setSelectedItem(null);
-    setFormOpen(true);
-  };
-  
-  const handleEdit = (item: any) => {
-    setSelectedItem(item);
-    setFormOpen(true);
-  };
-  
-  const handleFormClose = () => {
-    setSelectedItem(null);
-    setFormOpen(false);
-  };
-  
-  // Show loading state while authentication is being checked
-  const isLoading = isLoadingAuth || isLoadingBooking || isLoadingStatus || confirmingBooking;
-  
+
   if (isLoadingAuth) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
@@ -158,72 +168,60 @@ export default function BookingPage() {
       </Box>
     );
   }
-  
+
   return (
-    <Grid spacing={4} justifyContent="center">
-      <Grid item xs={12} md={10} lg={9}>
-        <Box sx={{ mb: 3 }}>
+    <Grid container spacing={6}>
+      {/* Header Section */}
+      <Grid item xs={12}>
+        <Box sx={{ mb: 1 }}>
           <Typography variant="h4" fontWeight={600}>
-            ຈັດການການຈອງ
+            ການຈອງ
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            ສິດການໃຊ້ງານປັດຈຸບັນ: {getRoleText(userRoleId)} (ID: {userRoleId})
-          </Typography>
+         
         </Box>
-        
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 2,
-            justifyContent: 'space-between',
-            mb: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, flexGrow: 1 }}>
+      </Grid>
+
+      {/* Statistics Cards */}
+      <Grid item xs={12}>
+        <BookingCards
+          totalCount={filteredBookings.length}
+          pendingCount={pendingCount}
+          confirmedCount={confirmedCount}
+          cancelledCount={cancelledCount}
+        />
+      </Grid>
+
+      {/* Search and Table Section */}
+      <Grid item xs={12}>
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
             <BookingSeach
               value={searchValue}
               onFilterChange={handleFilterChange}
             />
-            <BookingStatusFilter
-              statusFilter={statusFilter}
-              onStatusFilterChange={handleStatusFilterChange}
-              bookingStatuses={bookingStatuses}
+            <BookingDateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              onClearFilter={handleClearFilter}
+              hasFilter={hasDateFilter}
             />
           </Box>
+
           
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleCreate}
-            sx={{
-              height: 'fit-content',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            ເພິ່ມການຈອງ
-          </Button>
         </Box>
-        
+
         <BookingTable
-          data={filteredItems}
+          data={filteredBookings}
           loading={isLoading}
-          onEdit={handleEdit}
           onConfirm={handleConfirmBooking}
+          onCheckin={handleCheckinBooking} 
+          onCancel={handleCancelBooking}
+          onDelete={handleDeleteBooking}
           currentUserRole={userRoleId}
-          bookingStatuses={bookingStatuses}
         />
-        
       </Grid>
-      
-      <BookingFormInput
-        open={formOpen}
-        onClose={handleFormClose}
-        selectedItem={selectedItem}
-        onSaved={fetchItems}
-      />
     </Grid>
   );
 }
