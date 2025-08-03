@@ -166,62 +166,61 @@ export class CheckOutRepository implements CheckOutRepositoryPort {
     }> {
         try {
             console.log('📊 Repository: Fetching checkout stats...');
-            console.log('🔗 Using endpoint:', this.URL.STATS);
             
-            const response = await api.get<ApiResponse<any>>(this.URL.STATS);
+            const response = await api.get<ApiResponse<{
+                totalCheckOuts: number;
+                checkOutsToday: number;
+                averageStayDuration: number;
+                totalRevenue: number;
+            }>>(this.URL.STATS);
             
-            console.log('✅ Repository: Checkout stats response:', response.data);
-            
-            // ตรวจสอบว่า response.data.data เป็น Array หรือ Object
-            const statsData = response.data.data;
-            console.log('🔍 Stats data type:', typeof statsData, 'isArray:', Array.isArray(statsData));
-            
-            // หาก Backend ส่งมาเป็น Array ให้แปลงเป็น Object
-            if (Array.isArray(statsData)) {
-                console.log('⚠️ Repository: Stats returned as Array, converting to default Object');
-                return {
-                    totalCheckOuts: 0,
-                    checkOutsToday: 0,
-                    averageStayDuration: 0,
-                    totalRevenue: 0
-                };
-            }
-            
-            // หาก Backend ส่งมาเป็น Object แต่ว่าง
-            if (!statsData || typeof statsData !== 'object') {
-                console.log('⚠️ Repository: Invalid stats data, using defaults');
-                return {
-                    totalCheckOuts: 0,
-                    checkOutsToday: 0,
-                    averageStayDuration: 0,
-                    totalRevenue: 0
-                };
-            }
-            
-            // แปลงข้อมูลให้เป็น format ที่ถูกต้อง
-            const result = {
-                totalCheckOuts: Number(statsData.totalCheckOuts) || 0,
-                checkOutsToday: Number(statsData.checkOutsToday) || 0,
-                averageStayDuration: Number(statsData.averageStayDuration) || 0,
-                totalRevenue: Number(statsData.totalRevenue) || 0
-            };
-            
-            console.log('✅ Repository: Processed stats:', result);
-            return result;
-            
+            console.log('✅ Repository: Stats response:', response.data);
+            return response.data.data;
         } catch (error: any) {
-            console.error('❌ Repository: Error fetching checkout stats:', error);
+            console.error('❌ Repository: Error fetching stats:', error);
+            throw error;
+        }
+    }
+
+    // Management methods
+    async getManagementData(filters?: {
+        dateFrom?: string;
+        dateTo?: string;
+        roomId?: number;
+        customerId?: number;
+    }): Promise<{
+        completedCheckouts: CheckOut[];
+        currentlyStaying: CheckOut[];
+        total: number;
+    }> {
+        try {
+            console.log('🏨 Repository: Fetching management data...');
+            console.log('📋 Filters:', filters);
             
-            // Return default stats on error
-            const defaultStats = {
-                totalCheckOuts: 0,
-                checkOutsToday: 0,
-                averageStayDuration: 0,
-                totalRevenue: 0
-            };
+            const payload = filters || {};
+            const response = await api.post<ApiResponse<{
+                completedCheckouts: CheckOut[];
+                currentlyStaying: CheckOut[];
+                total: number;
+            }>>(this.URL.MANAGEMENT, payload);
             
-            console.log('⚠️ Repository: Returning default stats due to error');
-            return defaultStats;
+            console.log('✅ Repository: Management data response:', {
+                completedCount: response.data.data.completedCheckouts.length,
+                currentlyStayingCount: response.data.data.currentlyStaying.length,
+                total: response.data.data.total
+            });
+            
+            return response.data.data;
+        } catch (error: any) {
+            console.error('❌ Repository: Error fetching management data:', error);
+            console.error('❌ Error details:', {
+                message: error.message,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                url: error.config?.url,
+                method: error.config?.method
+            });
+            throw error;
         }
     }
 

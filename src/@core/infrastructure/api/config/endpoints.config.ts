@@ -10,6 +10,7 @@ const ENDPOINTS = {
         BASE_URL: '/customers' as const,
         get GET() { return `${this.BASE_URL}/query` },
         get CREATE() { return `${this.BASE_URL}/create` },
+        get REGISTER() { return `${this.BASE_URL}/register` },
         DETAIL: function (id: number) { return `${this.BASE_URL}/${id}` },
         UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
         DELETE: function (id: number) { return `${this.BASE_URL}/${id}` }
@@ -123,7 +124,7 @@ const ENDPOINTS = {
         DETAIL: function (id: number) { return `${this.BASE_URL}/${id}` },
         UPDATE: function (id: number) { return `${this.BASE_URL}/${id}` },
         DELETE: function (id: number) { return `${this.BASE_URL}/${id}` },
-        BY_CHECKIN: function (checkInId: number) { return `${this.BASE_URL}/checkin/${checkInId}` },
+        BY_CHECKIN: function (checkInId: number) { return `${this.BASE_URL}/by-checkin/${checkInId}` },
         CHECKOUT_CHECKIN: function (checkInId: number) { return `${this.BASE_URL}/${checkInId}/checkout` }
     },
     PAYMENT: {
@@ -139,6 +140,17 @@ const ENDPOINTS = {
         get REVENUE() { return `${this.BASE_URL}/revenue` },
         get OCCUPANCY() { return `${this.BASE_URL}/occupancy` },
         get BOOKINGS() { return `${this.BASE_URL}/bookings` }
+    },
+    REPORTS: {
+        BASE_URL: '/reports' as const,
+        get DASHBOARD() { return `${this.BASE_URL}/dashboard` },
+        get FINANCIAL() { return `${this.BASE_URL}/financial` },
+        get BOOKING() { return `${this.BASE_URL}/booking` },
+        get ROOM() { return `${this.BASE_URL}/room` },
+        get CUSTOMER() { return `${this.BASE_URL}/customer` },
+        get REVENUE() { return `${this.BASE_URL}/revenue` },
+        get OCCUPANCY() { return `${this.BASE_URL}/occupancy` },
+        get PAYMENTS() { return `${this.BASE_URL}/payments` }
     }
 } as const;
 
@@ -146,10 +158,10 @@ const ENDPOINTS = {
 export const {
     AUTH: AUTH_ENDPOINTS,
     CUSTOMER: CUSTOMER_ENDPOINTS,
-    CUSTOMER_BOOKING: CUSTOMER_BOOKING_ENDPOINTS, // ✅ เพิ่ม
+    CUSTOMER_BOOKING: CUSTOMER_BOOKING_ENDPOINTS, // 
     STAFF: STAFF_ENDPOINTS,
     ROOM: ROOM_ENDPOINTS,
-    ROOM_GALLERY: ROOM_GALLERY_ENDPOINTS, // ✅ เพิ่ม
+    ROOM_GALLERY: ROOM_GALLERY_ENDPOINTS, // 
     ROOM_TYPE: ROOM_TYPE_ENDPOINTS,
     ROOM_STATUS: ROOM_STATUS_ENDPOINTS,
     BOOKING: BOOKING_ENDPOINTS,
@@ -157,5 +169,6 @@ export const {
     CHECKIN: CHECKIN_ENDPOINTS,
     CHECKOUT: CHECKOUT_ENDPOINTS,
     PAYMENT: PAYMENT_ENDPOINTS,
-    DASHBOARD: DASHBOARD_ENDPOINTS
+    DASHBOARD: DASHBOARD_ENDPOINTS,
+    REPORTS: REPORTS_ENDPOINTS
 } = ENDPOINTS;

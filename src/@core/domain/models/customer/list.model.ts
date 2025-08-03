@@ -2,9 +2,11 @@ export interface Customer {
     CustomerId: number;
     CustomerName: string;
     CustomerGender: string;
-    CustomerTel: number;
+    CustomerTel: string;
     CustomerAddress: string;
-    CustomerPostcode: number;
+    CustomerPostcode: string;
+    userName?: string;
+    password?: string;
     createdAt?: Date | string;
     updatedAt?: Date | string;
 }

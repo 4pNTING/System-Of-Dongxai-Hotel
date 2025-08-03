@@ -16,9 +16,9 @@ export interface Booking {
     CustomerId: number;
     CustomerName: string;
     CustomerGender?: string;
-    CustomerTel?: number;
+    CustomerTel?: string;
     CustomerAddress?: string;
-    CustomerPostcode?: number;
+    CustomerPostcode?: string;
   };
   staff?: {
     StaffId: number;
@@ -32,6 +32,11 @@ export interface Booking {
       TypeId: number;
       TypeName: string;
     }
+    roomGalleries?: {
+      GalleryId: number;
+      ImageUrl: string;
+      ImageAlt?: string;
+    }[];
     // อื่นๆ ตามต้องการ
   };
   bookingStatus?: {

@@ -46,11 +46,13 @@ const calculateStayDuration = (checkInDate: string | Date, checkOutDate: string 
 }
 
 interface CheckOutTableProps {
-  data: any[] // CheckOut items
+  data: any[] // CheckOut items and CheckIn items (currently staying)
   loading: boolean
   currentUserRole: number
+  onCheckout?: (item: any) => Promise<void>
   onEdit?: (item: any) => void
   onDelete?: (item: any) => Promise<void>
+  showCheckoutButtons?: boolean // Show checkout buttons for check-in data
 }
 
 const columnHelper = createColumnHelper<any>()
@@ -59,8 +61,10 @@ const CheckOutTable: React.FC<CheckOutTableProps> = ({
   data, 
   loading, 
   currentUserRole,
+  onCheckout,
   onEdit,
-  onDelete
+  onDelete,
+  showCheckoutButtons = false
 }) => {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -69,10 +73,27 @@ const CheckOutTable: React.FC<CheckOutTableProps> = ({
     if (!data || data.length === 0) return [];
     const dataCopy = [...data];
     
-    // เรียงลำดับตาม CheckoutDate (ใหม่ไปเก่า)
+    // เรียงลำดับโดยแยกระหว่าง checkin และ checkout records
+    // CheckIn records (พร้อมเช็คเอาต์) ขึ้นก่อน, แล้ว CheckOut records เรียงตาม CheckoutDate
     return dataCopy.sort((a, b) => {
-      const aDate = new Date(a.CheckoutDate);
-      const bDate = new Date(b.CheckoutDate);
+      const aIsCheckin = a.type === 'checkin' || (!a.CheckOutDate && a.status === 'checked_in');
+      const bIsCheckin = b.type === 'checkin' || (!b.CheckOutDate && b.status === 'checked_in');
+      
+      // CheckIn records มาก่อน
+      if (aIsCheckin && !bIsCheckin) return -1;
+      if (!aIsCheckin && bIsCheckin) return 1;
+      
+      // ถ้าทั้งคู่เป็น checkin หรือ checkout ให้เรียงตามวันที่
+      if (aIsCheckin && bIsCheckin) {
+        // เรียงตาม CheckInDate สำหรับ checkin records
+        const aDate = new Date(a.CheckInDate);
+        const bDate = new Date(b.CheckInDate);
+        return bDate.getTime() - aDate.getTime();
+      }
+      
+      // เรียงตาม CheckoutDate สำหรับ checkout records
+      const aDate = new Date(a.CheckOutDate || a.checkIn?.CheckInDate);
+      const bDate = new Date(b.CheckOutDate || b.checkIn?.CheckInDate);
       return bDate.getTime() - aDate.getTime();
     });
   }, [data]);
@@ -84,30 +105,46 @@ const CheckOutTable: React.FC<CheckOutTableProps> = ({
         header: () => <div style={{ textAlign: 'center' }}>ລຳດັບ</div>,
         cell: ({ row }) => <div style={{ textAlign: 'center' }}>{row.index + 1}</div>
       },
-      columnHelper.accessor('CheckOutId', {
-        id: 'checkoutId',
-        header: () => <div style={{ textAlign: 'center' }}>ລະຫັດເຊັກເອົາ</div>,
-        cell: info => (
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#666' }}>CO</span>
-            {info.getValue()}
-          </div>
-        )
-      }),
-      columnHelper.accessor(row => row.checkIn?.CheckInId, {
-        id: 'checkInId',
-        header: () => <div style={{ textAlign: 'center' }}>ລະຫັດເຊັກອິນ</div>,
-        cell: info => (
-          <div style={{ textAlign: 'center' }}>
-            {info.getValue() ? (
-              <>
-                <span style={{ fontSize: '0.75rem', color: '#666' }}>CI</span>
-                {info.getValue()}
-              </>
-            ) : 'N/A'}
-          </div>
-        )
-      }),
+      // แสดงคอลัมน์ต่างกันตาม showCheckoutButtons
+      ...(showCheckoutButtons ? [
+        // For currently checked-in rooms
+        columnHelper.accessor('CheckInId', {
+          id: 'checkInId',
+          header: () => <div style={{ textAlign: 'center' }}>ລະຫັດເຊັກອິນ</div>,
+          cell: info => (
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#666' }}>CI</span>
+              {info.getValue()}
+            </div>
+          )
+        })
+      ] : [
+        // For checkout history
+        columnHelper.accessor('CheckOutId', {
+          id: 'checkoutId',
+          header: () => <div style={{ textAlign: 'center' }}>ລະຫັດເຊັກເອົາ</div>,
+          cell: info => (
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#666' }}>CO</span>
+              {info.getValue()}
+            </div>
+          )
+        }),
+        columnHelper.accessor(row => row.checkIn?.CheckInId, {
+          id: 'checkInId',
+          header: () => <div style={{ textAlign: 'center' }}>ລະຫັດເຊັກອິນ</div>,
+          cell: info => (
+            <div style={{ textAlign: 'center' }}>
+              {info.getValue() ? (
+                <>
+                  <span style={{ fontSize: '0.75rem', color: '#666' }}>CI</span>
+                  {info.getValue()}
+                </>
+              ) : 'N/A'}
+            </div>
+          )
+        })
+      ]),
       columnHelper.accessor('RoomId', {
         header: () => <div style={{ textAlign: 'center' }}>ຫ້ອງພັກ</div>,
         cell: info => {
@@ -133,41 +170,152 @@ const CheckOutTable: React.FC<CheckOutTableProps> = ({
           );
         }
       }),
-      columnHelper.accessor(row => row.checkIn?.customer?.CustomerName || 'N/A', {
+      columnHelper.accessor(row => {
+        // สำหรับ CheckIn data ใช้ row.customer, สำหรับ CheckOut data ใช้ row.checkIn?.customer
+        return row.customer?.CustomerName || row.checkIn?.customer?.CustomerName || 'N/A';
+      }, {
         id: 'CustomerName',
         header: () => <div style={{ textAlign: 'center' }}>ລູກຄ້າ</div>,
-        cell: info => (
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontWeight: 500 }}>{info.getValue()}</div>
-            {info.row.original.checkIn?.customer?.CustomerTel && (
-              <div style={{ fontSize: '0.75rem', color: '#666' }}>
-                {info.row.original.checkIn.customer.CustomerTel}
-              </div>
-            )}
-          </div>
-        )
+        cell: info => {
+          const item = info.row.original;
+          const customerTel = item.customer?.CustomerTel || item.checkIn?.customer?.CustomerTel;
+          
+          return (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 500 }}>{info.getValue()}</div>
+              {customerTel && (
+                <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                  {customerTel}
+                </div>
+              )}
+            </div>
+          );
+        }
       }),
-      columnHelper.accessor(row => row.checkIn?.CheckInDate, {
+      columnHelper.accessor(row => {
+        // สำหรับ CheckIn data ใช้ row.CheckInDate, สำหรับ CheckOut data ใช้ row.checkIn?.CheckInDate
+        return row.CheckInDate || row.checkIn?.CheckInDate;
+      }, {
         id: 'checkinDate',
         header: () => <div style={{ textAlign: 'center' }}>ເຂົ້າພັກ</div>,
-        cell: info => <div style={{ textAlign: 'center' }}>{formatDate(info.getValue())}</div>
+        cell: info => {
+          const checkInDate = info.getValue();
+          const item = info.row.original;
+          const isCheckin = showCheckoutButtons || (!item.CheckOutDate && item.status === 'checked_in');
+          
+          return (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 500, color: isCheckin ? '#1976d2' : 'inherit' }}>
+                {formatDate(checkInDate)}
+              </div>
+              {checkInDate && (
+                <div style={{ fontSize: '0.70rem', color: '#666' }}>
+                  {formatDateTime(checkInDate).split(' ')[1]}
+                </div>
+              )}
+              {isCheckin && (
+                <div style={{ fontSize: '0.65rem', color: '#1976d2', fontWeight: 500 }}>
+                  ກຳລັງພັກ
+                </div>
+              )}
+            </div>
+          );
+        }
       }),
       columnHelper.accessor('CheckOutDate', {
         id: 'checkoutDate',
         header: () => <div style={{ textAlign: 'center' }}>ເຊັກເອົາ</div>,
-        cell: info => <div style={{ textAlign: 'center' }}>{formatDateTime(info.getValue())}</div>
-      }),
-      {
-        id: 'stayDuration',
-        header: () => <div style={{ textAlign: 'center' }}>ຄືນທີ່ພັກ</div>,
-        cell: ({ row }) => {
-          const item = row.original;
-          const checkInDate = item.checkIn?.CheckInDate;
-          const checkOutDate = item.CheckOutDate;
+        cell: info => {
+          const checkoutDate = info.getValue();
+          const item = info.row.original;
+          const isCheckin = !item.CheckOutDate && item.status === 'checked_in';
           
           return (
             <div style={{ textAlign: 'center' }}>
-              {calculateStayDuration(checkInDate, checkOutDate)}
+              {checkoutDate ? (
+                <>
+                  <div style={{ fontWeight: 500 }}>
+                    {formatDate(checkoutDate)}
+                  </div>
+                  <div style={{ fontSize: '0.70rem', color: '#666' }}>
+                    {formatDateTime(checkoutDate).split(' ')[1]}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: '#4caf50', fontWeight: 500 }}>
+                    ເຊັກເອົາແລ້ວ
+                  </div>
+                </>
+              ) : isCheckin ? (
+                <>
+                  <div style={{ color: '#ff9800', fontWeight: 500 }}>
+                    -
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: '#ff9800', fontWeight: 500 }}>
+                    ຍັງບໍ່ເຊັກເອົາ
+                  </div>
+                </>
+              ) : (
+                <div style={{ color: '#999' }}>N/A</div>
+              )}
+            </div>
+          );
+        }
+      }),
+      {
+        id: 'stayDuration',
+        header: () => <div style={{ textAlign: 'center' }}>ໄລຍະເວລາພັກ</div>,
+        cell: ({ row }) => {
+          const item = row.original;
+          const checkInDate = item.checkIn?.CheckInDate || item.CheckInDate;
+          const checkOutDate = item.CheckOutDate;
+          const isCheckin = !item.CheckOutDate && item.status === 'checked_in';
+          
+          if (!checkInDate) {
+            return <div style={{ textAlign: 'center', color: '#999' }}>N/A</div>;
+          }
+          
+          let duration = '';
+          let currentStay = '';
+          
+          if (isCheckin) {
+            // คำนวณจำนวนวันที่พักอยู่ปัจจุบัน
+            const now = new Date();
+            const checkIn = new Date(checkInDate);
+            const diffTime = now.getTime() - checkIn.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            duration = `${diffDays} ຄືນ`;
+            currentStay = '(ກຳລັງພັກ)';
+          } else if (checkOutDate) {
+            // คำนวณจำนวนวันที่พักทั้งหมด
+            const totalStay = calculateStayDuration(checkInDate, checkOutDate);
+            duration = totalStay;
+            currentStay = '(ສຳເລັດ)';
+          }
+          
+          return (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                fontWeight: 500, 
+                color: isCheckin ? '#ff9800' : '#4caf50' 
+              }}>
+                {duration}
+              </div>
+              <div style={{ 
+                fontSize: '0.65rem', 
+                color: isCheckin ? '#ff9800' : '#666',
+                fontWeight: isCheckin ? 500 : 400
+              }}>
+                {currentStay}
+              </div>
+              {isCheckin && (
+                <div style={{ 
+                  fontSize: '0.60rem', 
+                  color: '#999',
+                  marginTop: '2px'
+                }}>
+                  ແຕ່ເຂົ້າພັກ
+                </div>
+              )}
             </div>
           );
         }
@@ -177,12 +325,14 @@ const CheckOutTable: React.FC<CheckOutTableProps> = ({
         header: () => <div style={{ textAlign: 'center' }}>ສະຖານະ</div>,
         cell: ({ row }) => {
           const item = row.original;
+          const isCheckin = !item.CheckOutDate && item.status === 'checked_in';
           
           return (
             <div style={{ textAlign: 'center' }}>
               <CheckOutStatusChip 
-                status="completed"
-                checkoutDate={item.CheckoutDate}
+                type={isCheckin ? 'checkin' : 'checkout'}
+                status={item.status || ''}
+                statusId={item.StatusId}
               />
             </div>
           );
@@ -198,19 +348,23 @@ const CheckOutTable: React.FC<CheckOutTableProps> = ({
         header: () => <div style={{ textAlign: 'center' }}>ຈັດການ</div>,
         cell: ({ row }) => {
           const item = row.original;
+          const isCheckin = item.type === 'checkin' || (!item.CheckOutDate && item.status === 'checked_in');
           
           return (
             <CheckOutActionButtons
               item={item}
+              type={isCheckin ? 'checkin' : 'checkout'}
+              onCheckout={onCheckout}
               onEdit={onEdit}
               onDelete={onDelete}
               currentUserRole={currentUserRole}
+              showCheckoutButtons={showCheckoutButtons}
             />
           );
         }
       }
     ],
-    [currentUserRole, onEdit, onDelete]
+    [currentUserRole, onCheckout, onEdit, onDelete]
   );
 
   const table = useReactTable({

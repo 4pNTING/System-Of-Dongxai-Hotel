@@ -78,11 +78,11 @@ type FormData = InferInput<typeof schema>
 
 // เปลี่ยน schema จาก email เป็น userName
 const schema = object({
-  userName: pipe(string(), minLength(1, 'This field is required')),
+  userName: pipe(string(), minLength(1, 'ກະລຸນາໃສ່ຊື່ຜູ້ໃຊ້')),
   password: pipe(
     string(),
-    nonEmpty('This field is required'),
-    minLength(5, 'Password must be at least 5 characters long')
+    nonEmpty('ກະລຸນາໃສ່ລະຫັດຜ່ານ'),
+    minLength(5, 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 5 ຕົວອັກສອນ')
   )
 })
 
@@ -203,8 +203,8 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
         </div>
         <div className='flex flex-col gap-6 is-full sm:is-auto md:is-full sm:max-is-[400px] md:max-is-[unset] mbs-8 sm:mbs-11 md:mbs-0'>
           <div className='flex flex-col gap-1'>
-            <Typography variant='h4'>{`Welcome to ${themeConfig.templateName}! 👋🏻`}</Typography>
-            <Typography>Please sign-in to your account and start the adventure</Typography>
+            <Typography variant='h4'>{`Welcome to ${themeConfig.templateName}! `}</Typography>
+            <Typography>ເຂົ້າສູ່ລະບົບ</Typography>
           </div>
           <Alert icon={false} className='bg-[var(--mui-palette-primary-lightOpacity)]'>
             <Typography variant='body2' color='primary'>
@@ -228,8 +228,8 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
                   {...field}
                   autoFocus
                   fullWidth
-                  label='Username'
-                  placeholder='Enter your username'
+                  label='ຊື່ຜູ້ໃຊ້'
+                  placeholder='ກະລຸນາໃສ່ຊື່ຜູ້ໃຊ້ຂອງທ່ານ'
                   onChange={e => {
                     field.onChange(e.target.value)
                     errorState !== null && setErrorState(null)
@@ -249,7 +249,7 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
                 <CustomTextField
                   {...field}
                   fullWidth
-                  label='Password'
+                  label='ລະຫັດຜ່ານ'
                   placeholder='············'
                   id='login-password'
                   type={isPasswordShown ? 'text' : 'password'}
@@ -271,23 +271,23 @@ const onSubmit: SubmitHandler<FormData> = async (data: FormData) => {
               )}
             />
             <div className='flex justify-between items-center gap-x-3 gap-y-1 flex-wrap'>
-              <FormControlLabel control={<Checkbox defaultChecked />} label='Remember me' />
-              <Typography
+              <FormControlLabel control={<Checkbox defaultChecked />} label='ຈົດຈ່າຍ' />
+              {/* <Typography
                 className='text-end'
                 color='primary'
                 component={Link}
                 href={getLocalizedUrl('/forgot-password', locale as Locale)}
               >
-                Forgot password?
-              </Typography>
+                Forgot password? 1
+              </Typography> */}
             </div>
             <Button fullWidth variant='contained' type='submit'>
-              Login
+              ເຂົ້າສູ່ລະບົບ
             </Button>
             <div className='flex justify-center items-center flex-wrap gap-2'>
-              <Typography>New on our platform?</Typography>
+              <Typography>ບໍ່ມີບັນຊີ?</Typography>
               <Typography component={Link} href={getLocalizedUrl('/register', locale as Locale)} color='primary'>
-                Create an account
+                ສ້າງບັນຊີ
               </Typography>
             </div>
            

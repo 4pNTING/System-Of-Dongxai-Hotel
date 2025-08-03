@@ -77,7 +77,9 @@ interface BookingTableProps {
   onCheckin?: (item: Booking) => Promise<void>
   onCancel?: (item: Booking) => Promise<void>
   onDelete?: (item: Booking) => Promise<void>
-  currentUserRole: number
+  onEdit?: (item: Booking) => void
+  currentUserRole?: number
+  userRoleId?: number
   bookingStatuses?: BookingStatus[]
 }
 
@@ -90,7 +92,9 @@ const BookingTable: React.FC<BookingTableProps> = ({
   onCheckin,
   onCancel,
   onDelete,
+  onEdit,
   currentUserRole,
+  userRoleId,
   bookingStatuses = []
 }) => {
 
@@ -224,10 +228,10 @@ const BookingTable: React.FC<BookingTableProps> = ({
       case 1: return 'ລໍຖ້າຢືນຢັນ';
       case 2: return 'ຢືນຢັນແລ້ວ';
       case 3: return 'ເຊັກອິນແລ້ວ';
-      case 4: return 'ຊຳລະເງິນແລ້ວ';
+      case 4: return 'ເຊັກເອົາແລ້ວ';
       case 5: return 'ຍົກເລີກການຈອງ';
-      case 6: return 'ຊຳລະເງິນ';
-      case 7: return 'ຂໍຄືນເງິນມັດຈຳ';
+      case 6: return 'ບໍ່ມາຕາມນັດ';
+      case 7: return 'ກຳລັງດຳເນີນການ';
       default: return `Status ID: ${statusId}`;
     }
   }
@@ -335,11 +339,12 @@ const BookingTable: React.FC<BookingTableProps> = ({
           return (
             <BookingActionButtons
               booking={booking}
+              onEdit={onEdit}
               onConfirm={handleConfirmBooking}
               onCheckin={handleCheckinBooking}
               onCancel={handleCancelBooking}
               onDelete={(id: number) => handleDeleteClick(booking)} // แปลง signature ให้ตรงกับ BookingActionButtons
-              currentUserRole={currentUserRole}
+              currentUserRole={currentUserRole || userRoleId}
             />
           );
         }

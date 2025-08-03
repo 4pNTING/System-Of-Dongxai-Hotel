@@ -1,8 +1,28 @@
-// src/views/apps/components/customer/my-bookings/SelectionCard.tsx
+// src/views/apps/components/customer/book-now/SelectionCard.tsx
 'use client';
 
 import React, { useState } from 'react';
 import { RoomWithGallery } from '@/@core/domain/models/room-gallery/list.model';
+
+// ✅ Helper function สำหรับ format image path
+const getImageUrl = (imagePath: string | null | undefined): string => {
+  if (!imagePath) {
+    return 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop';
+  }
+  
+  // ถ้า imagePath เริ่มด้วย http/https ใช้เลย
+  if (imagePath.startsWith('http')) {
+    return imagePath;
+  }
+  
+  // ถ้า imagePath เริ่มด้วย / ใช้เลย (absolute path)
+  if (imagePath.startsWith('/')) {
+    return imagePath;
+  }
+  
+  // ถ้าเป็น relative path เพิ่ม / ข้างหน้า
+  return `/${imagePath}`;
+};
 
 interface RoomSelectionCardsProps {
   rooms: RoomWithGallery[];
@@ -35,20 +55,62 @@ const RoomCard: React.FC<RoomCardProps> = ({
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingDates, setBookingDates] = useState(defaultBookingDates);
+  const [imageError, setImageError] = useState(false);
 
-  // Get active galleries sorted by display order
+  // ✅ เรียง gallery โดยใช้ IsPrimary เป็นหลัก (ไม่สนใจ DisplayOrder)
   const activeGalleries = room.galleries
-    ?.filter(img => img.IsActive)
-    ?.sort((a, b) => a.DisplayOrder - b.DisplayOrder) || [];
+    ?.filter(img => {
+      console.log(`🖼️ [Room ${room.RoomId}] Gallery:`, {
+        galleryId: img.GalleryId,
+        imageName: img.ImageName,
+        isPrimary: img.IsPrimary,
+        isActive: img.IsActive
+      });
+      return img.IsActive;
+    })
+    ?.sort((a, b) => {
+      // ✅ เรียงตาม IsPrimary ก่อน (Primary มาก่อน)
+      if (a.IsPrimary && !b.IsPrimary) return -1;
+      if (!a.IsPrimary && b.IsPrimary) return 1;
+      // ถ้า IsPrimary เหมือนกัน เรียงตาม GalleryId
+      return a.GalleryId - b.GalleryId;
+    }) || [];
 
+  console.log(`🖼️ [Room ${room.RoomId}] Sorted galleries:`, 
+    activeGalleries.map(g => `${g.ImageName} (Primary: ${g.IsPrimary})`)
+  );
+
+  // ✅ หา primary image โดยตรง
+  const primaryImage = activeGalleries.find(img => img.IsPrimary);
   const currentImage = activeGalleries[currentImageIndex];
-  const displayImage = currentImage?.ImagePath || 
-    room.primaryImage?.ImagePath || 
-    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop';
+  
+  // ✅ ใช้ primary image ก่อน ถ้าไม่มีใช้รูปแรก
+  let displayImage: string;
+  
+  if (currentImageIndex === 0 && primaryImage) {
+    displayImage = getImageUrl(primaryImage.ImagePath);
+    console.log(`🖼️ [Room ${room.RoomId}] Using PRIMARY:`, primaryImage.ImageName);
+  } else if (currentImage?.ImagePath) {
+    displayImage = getImageUrl(currentImage.ImagePath);
+    console.log(`🖼️ [Room ${room.RoomId}] Using current:`, currentImage.ImageName);
+  } else if (room.primaryImage?.ImagePath) {
+    displayImage = getImageUrl(room.primaryImage.ImagePath);
+    console.log(`🖼️ [Room ${room.RoomId}] Using room.primaryImage:`, room.primaryImage.ImageName);
+  } else {
+    console.log(`🖼️ [Room ${room.RoomId}] Using fallback`);
+    displayImage = 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop';
+  }
 
   const description = currentImage?.ImageDescription || 
+    primaryImage?.ImageDescription ||
     room.primaryImage?.ImageDescription || 
     'ຫ້ອງພັກສະດວກສະບາຍ ມີສິ່ງອຳນວຍຄວາມສະດວກຄົບຄັນ';
+
+  // ✅ Handle image error
+  const handleImageError = () => {
+    console.error('Image failed to load:', displayImage);
+    setImageError(true);
+  };
 
   // Star Rating Component
   const StarRating = ({ rating }: { rating: number }) => {
@@ -72,6 +134,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
     e.stopPropagation();
     if (activeGalleries.length > 1) {
       setCurrentImageIndex((prev) => (prev + 1) % activeGalleries.length);
+      setImageError(false);
     }
   };
 
@@ -79,6 +142,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
     e.stopPropagation();
     if (activeGalleries.length > 1) {
       setCurrentImageIndex((prev) => (prev - 1 + activeGalleries.length) % activeGalleries.length);
+      setImageError(false);
     }
   };
 
@@ -114,8 +178,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
     onViewDetails(room.RoomId);
   };
 
-  console.log('room data:', room);
-
   return (
     <>
       <div 
@@ -136,9 +198,26 @@ const RoomCard: React.FC<RoomCardProps> = ({
         {/* Room Image with Gallery Navigation */}
         <div 
           className="h-52 bg-cover bg-center relative cursor-pointer group"
-          style={{ backgroundImage: `url(${displayImage})` }}
           onClick={handleViewDetails}
         >
+          {/* ✅ แสดงรูปภาพด้วย img tag แทน background-image */}
+          {!imageError ? (
+            <img
+              src={displayImage}
+              alt={description}
+              className="w-full h-full object-cover"
+              onError={handleImageError}
+              loading="lazy"
+            />
+          ) : (
+            <div 
+              className="w-full h-full bg-cover bg-center"
+              style={{ 
+                backgroundImage: `url(https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop)`
+              }}
+            />
+          )}
+
           {/* Overlay Gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
 
@@ -152,14 +231,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                   backgroundColor: 'rgba(212, 133, 28, 0.8)',
                   backdropFilter: 'blur(10px)'
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#d4851c';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(212, 133, 28, 0.8)';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
                 aria-label="Previous image"
               >
                 ‹
@@ -170,14 +241,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                 style={{ 
                   backgroundColor: 'rgba(212, 133, 28, 0.8)',
                   backdropFilter: 'blur(10px)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#d4851c';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(212, 133, 28, 0.8)';
-                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
                 }}
                 aria-label="Next image"
               >
@@ -200,15 +263,19 @@ const RoomCard: React.FC<RoomCardProps> = ({
             <div className="text-xs text-gray-600">/ ຄືນ</div>
           </div>
 
-          {/* Gallery Count Badge */}
-          {activeGalleries.length > 1 && (
-            <div 
-              className="absolute top-4 left-4 text-white px-3 py-2 rounded-lg text-sm font-medium backdrop-blur-md"
-              style={{ backgroundColor: 'rgba(212, 133, 28, 0.9)' }}
-            >
-              📷 {activeGalleries.length} ຮູບ ({currentImageIndex + 1}/{activeGalleries.length})
+          {/* Debug Info Badge - แสดง Primary Image */}
+          <div 
+            className="absolute top-4 left-4 text-white px-2 py-1 rounded text-xs backdrop-blur-md"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+          >
+            <div>Room {room.RoomId}</div>
+            {primaryImage && (
+              <div className="text-green-300">PRIMARY: {primaryImage.ImageName}</div>
+            )}
+            <div className="text-yellow-300">
+              Current: {currentImage?.ImageName || 'None'}
             </div>
-          )}
+          </div>
 
           {/* Image Dots Indicator */}
           {activeGalleries.length > 1 && (
@@ -219,6 +286,7 @@ const RoomCard: React.FC<RoomCardProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     setCurrentImageIndex(index);
+                    setImageError(false);
                   }}
                   className="w-3 h-3 rounded-full transition-all duration-200"
                   style={{
@@ -248,12 +316,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                 className="text-xl font-bold cursor-pointer hover:underline transition-all duration-200" 
                 style={{ color: '#2c3e50' }}
                 onClick={handleViewDetails}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#d4851c';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#2c3e50';
-                }}
               >
                 {room.roomType.TypeName}
               </h3>
@@ -300,14 +362,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                 borderColor: '#d4851c',
                 color: '#d4851c'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#d4851c';
-                e.currentTarget.style.color = 'white';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#d4851c';
-              }}
             >
               ລາຍລະອຽດ
             </button>
@@ -318,14 +372,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
               style={{ 
                 background: 'linear-gradient(135deg, #d4851c, #f4a261)',
                 boxShadow: '0 4px 12px rgba(212, 133, 28, 0.3)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #b8731a, #d4851c)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(212, 133, 28, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #d4851c, #f4a261)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(212, 133, 28, 0.3)';
               }}
             >
               ຈອງເລີຍ
@@ -365,12 +411,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                   className="w-full border-2 rounded-lg px-4 py-3 transition-all duration-200"
                   style={{ borderColor: '#d4851c' }}
                   min={new Date().toISOString().split('T')[0]}
-                  onFocus={(e) => {
-                    e.target.style.boxShadow = '0 0 0 3px rgba(212, 133, 28, 0.1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.boxShadow = 'none';
-                  }}
                 />
               </div>
               
@@ -385,12 +425,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                   className="w-full border-2 rounded-lg px-4 py-3 transition-all duration-200"
                   style={{ borderColor: '#d4851c' }}
                   min={bookingDates.checkinDate || new Date().toISOString().split('T')[0]}
-                  onFocus={(e) => {
-                    e.target.style.boxShadow = '0 0 0 3px rgba(212, 133, 28, 0.1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.boxShadow = 'none';
-                  }}
                 />
               </div>
             </div>
@@ -401,16 +435,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                 className="flex-1 px-6 py-3 border-2 rounded-lg transition-all duration-200 font-medium"
                 style={{ borderColor: '#d4851c', color: '#d4851c' }}
                 disabled={isBooking}
-                onMouseEnter={(e) => {
-                  if (!isBooking) {
-                    e.currentTarget.style.backgroundColor = 'rgba(212, 133, 28, 0.1)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isBooking) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
               >
                 ຍົກເລີກ
               </button>
@@ -422,18 +446,6 @@ const RoomCard: React.FC<RoomCardProps> = ({
                   boxShadow: '0 4px 12px rgba(212, 133, 28, 0.3)'
                 }}
                 disabled={isBooking}
-                onMouseEnter={(e) => {
-                  if (!isBooking) {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #b8731a, #d4851c)';
-                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(212, 133, 28, 0.4)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isBooking) {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #d4851c, #f4a261)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(212, 133, 28, 0.3)';
-                  }
-                }}
               >
                 {isBooking ? '⏳ ກຳລັງຈອງ...' : '✅ ຢືນຢັນການຈອງ'}
               </button>

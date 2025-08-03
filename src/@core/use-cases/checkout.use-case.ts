@@ -86,4 +86,22 @@ export class CheckOutUseCase {
       throw error;
     }
   }
+
+  // Management methods
+  async executeGetManagementData(filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+    roomId?: number;
+    customerId?: number;
+  }): Promise<{
+    completedCheckouts: CheckOut[];
+    currentlyStaying: CheckOut[];
+    total: number;
+  }> {
+    try {
+      return await this.repository.getManagementData(filters);
+    } catch (error) {
+      throw error;
+    }
+  }
 }

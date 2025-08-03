@@ -21,4 +21,16 @@ export interface CheckOutRepositoryPort {
     averageStayDuration: number;
     totalRevenue: number;
   }>;
+
+  // Management methods
+  getManagementData(filters?: {
+    dateFrom?: string;
+    dateTo?: string;
+    roomId?: number;
+    customerId?: number;
+  }): Promise<{
+    completedCheckouts: CheckOut[];
+    currentlyStaying: CheckOut[];
+    total: number;
+  }>;
 }

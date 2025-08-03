@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   basePath: process.env.BASEPATH,
+  experimental: {
+    fetchCacheKeyPrefix: ''
+  },
   redirects: async () => {
     return [
       {

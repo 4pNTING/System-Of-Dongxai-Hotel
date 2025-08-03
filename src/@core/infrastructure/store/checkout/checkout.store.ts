@@ -111,32 +111,59 @@ const useCheckOutStore = create<CheckOutState>((set, get) => ({
     const { setError } = useErrorStore.getState();
     
     try {
-      console.log('📋 Store: Starting fetchItems...');
+      console.log('📋 Store: Starting fetchItems with query data...');
       console.log('🕐 Timestamp:', new Date().toISOString());
       
       setLoading(true);
       set({ isLoading: true });
       
       console.log('🔗 Store: Calling checkOutService.getMany()');
-      const data = await checkOutService.getMany();
+      const allCheckoutData = await checkOutService.getMany();
       
-      console.log('✅ Store: Fetched check-outs successfully:', {
-        count: data?.length || 0,
-        firstItem: data?.[0] || null,
-        type: typeof data,
-        isArray: Array.isArray(data)
+      console.log('✅ Store: Fetched checkout data successfully:', {
+        totalRecords: allCheckoutData?.length || 0,
+        type: typeof allCheckoutData
       });
       
-      // ตรวจสอบว่า data เป็น array หรือไม่
-      const safeData = Array.isArray(data) ? data : [];
+      // Separate completed checkouts and currently staying guests
+      const completedCheckouts = allCheckoutData.filter(item => item.CheckOutDate !== null);
+      const currentlyStaying = allCheckoutData.filter(item => item.CheckOutDate === null); // ✅ จัดเรียงแล้ว
       
-      set({ items: safeData, isLoading: false });
+      console.log('🔄 Store: Data separated:', {
+        completedCheckouts: completedCheckouts.length,
+        currentlyStaying: currentlyStaying.length
+      });
+      
+      // Combine both arrays and mark with type for UI components
+      const combinedItems = [
+        // Currently staying guests first (marked as 'checkin' type)
+        ...currentlyStaying.map(item => ({
+          ...item,
+          type: 'checkin', // For CheckOutStatusChip and CheckOutActionButtons
+          status: 'checked_in' // Status for the UI
+        })),
+        // Completed checkouts second (marked as 'checkout' type)
+        ...completedCheckouts.map(item => ({
+          ...item,
+          type: 'checkout',
+          status: 'completed'
+        }))
+      ];
+      
+      console.log('🔄 Store: Combined items:', {
+        totalCombined: combinedItems.length,
+        currentlyStaying: currentlyStaying.length,
+        completed: completedCheckouts.length
+      });
+      
+      set({ 
+        items: combinedItems,
+        isLoading: false 
+      });
       setLoading(false);
       
-      console.log('📊 Store: State updated successfully, items count:', safeData.length);
-      
     } catch (error: any) {
-      console.error('❌ Store: Error in fetchItems:', error);
+      console.error('❌ Store: Error fetching management data:', error);
       console.error('❌ Store: Error details:', {
         message: error.message,
         status: error.response?.status,
@@ -149,7 +176,7 @@ const useCheckOutStore = create<CheckOutState>((set, get) => ({
       set({ isLoading: false, items: [] });
       setLoading(false);
       
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch check-outs';
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch checkout management data';
       setError(errorMessage);
       
       // แจ้งเตือนใน console

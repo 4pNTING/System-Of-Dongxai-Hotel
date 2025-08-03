@@ -72,32 +72,69 @@ export default function CheckOutPage() {
     !checkIn.checkOuts || checkIn.checkOuts.length === 0
   );
 
-  // กรองตามค้นหาและวันที่สำหรับ check-outs
-  const filteredCheckOuts = checkOuts.filter(checkOut => {
-    // กรองตาม search
-    const checkOutId = String(checkOut.CheckOutId);
-    const checkInId = checkOut.checkIn?.CheckInId ? String(checkOut.checkIn.CheckInId) : '';
-    const roomId = checkOut.RoomId ? String(checkOut.RoomId) : '';
-    const customerName = checkOut.checkIn?.customer?.CustomerName || '';
+  // รวมข้อมูล check-ins ที่กำลังพักและ check-outs ที่เสร็จแล้ว
+  const combinedData = [
+    // ห้องที่กำลังเข้าพัก (พร้อม checkout buttons)
+    ...readyToCheckoutCheckIns.map(checkIn => ({
+      ...checkIn,
+      status: 'checked_in',
+      type: 'checkin'
+    })),
+    // ประวัติ checkout ที่เสร็จแล้ว
+    ...checkOuts.map(checkOut => ({
+      ...checkOut,
+      status: 'checked_out',
+      type: 'checkout'
+    }))
+  ];
+
+  // กรองข้อมูลรวม
+  const filteredCombinedData = combinedData.filter(item => {
+    // กรองตาม search - ใช้ type guards แทน type assertions
+    let checkInId = '';
+    let checkOutId = '';
+    let roomId = '';
+    let customerName = '';
+    let roomTypeName = '';
+
+    if (item.type === 'checkin') {
+      // สำหรับ check-in records - เข้าถึง properties โดยตรง
+      checkInId = 'CheckInId' in item ? String(item.CheckInId) : '';
+      roomId = 'RoomId' in item ? String(item.RoomId) : '';
+      customerName = ('customer' in item && item.customer) ? item.customer.CustomerName || '' : '';
+      roomTypeName = ('room' in item && item.room?.roomType) ? item.room.roomType.TypeName || '' : '';
+    } else {
+      // สำหรับ checkout records - เข้าถึงผ่าน nested checkIn
+      checkOutId = 'CheckOutId' in item ? String(item.CheckOutId) : '';
+      if ('checkIn' in item && item.checkIn) {
+        checkInId = item.checkIn.CheckInId ? String(item.checkIn.CheckInId) : '';
+        roomId = item.checkIn.RoomId ? String(item.checkIn.RoomId) : '';
+        customerName = item.checkIn.customer?.CustomerName || '';
+        roomTypeName = item.checkIn.room?.roomType?.TypeName || '';
+      }
+    }
 
     const matchesSearch = !searchValue ||
-      checkOutId.includes(searchValue) ||
       checkInId.includes(searchValue) ||
+      checkOutId.includes(searchValue) ||
       roomId.includes(searchValue) ||
-      customerName.toLowerCase().includes(searchValue.toLowerCase());
+      customerName.toLowerCase().includes(searchValue.toLowerCase()) ||
+      roomTypeName.toLowerCase().includes(searchValue.toLowerCase());
 
     // กรองตามวันที่
     let matchesDate = true;
     if (startDate && endDate) {
-      const checkOutDate = new Date(checkOut.CheckOutDate);
+      const relevantDate = item.type === 'checkin' ? 
+        new Date(item.CheckInDate) : 
+        new Date(item.CheckOutDate || (item as any).checkIn?.CheckInDate);
       const filterStartDate = new Date(startDate);
       const filterEndDate = new Date(endDate);
 
-      checkOutDate.setHours(0, 0, 0, 0);
+      relevantDate.setHours(0, 0, 0, 0);
       filterStartDate.setHours(0, 0, 0, 0);
       filterEndDate.setHours(23, 59, 59, 999);
 
-      matchesDate = checkOutDate >= filterStartDate && checkOutDate <= filterEndDate;
+      matchesDate = relevantDate >= filterStartDate && relevantDate <= filterEndDate;
     }
 
     return matchesSearch && matchesDate;
@@ -192,7 +229,7 @@ export default function CheckOutPage() {
     setCheckInSearchOpen(true);
   };
 
-  const handleSelectCheckIn = (checkIn: any) => {
+  const handleSelectCheckIn = async (checkIn: any) => {
     setSelectedCheckIn(checkIn);
     setCheckInSearchOpen(false);
     setCheckoutDialogOpen(true);
@@ -266,7 +303,7 @@ export default function CheckOutPage() {
             <CheckOutSearch
               value={searchValue}
               onFilterChange={handleFilterChange}
-              placeholder="ຄົ້ນຫາ Checkout ID, Check-in ID, ຫ້ອງ, ຫຼື ລູກຄ້າ..."
+              placeholder="ຄົ້ນຫາ Check-in/Checkout ID, ຫ້ອງ, ລູກຄ້າ, ຫຼື ປະເພດຫ້ອງ..."
             />
             <DateRangePicker
               startDate={startDate}
@@ -281,24 +318,29 @@ export default function CheckOutPage() {
           {/* Results Summary */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              ພົບ {filteredCheckOuts.length} ລາຍການເຊັກເອົາ
+              ພົບ {filteredCombinedData.length} ລາຍການທັງໝົດ
               {hasDateFilter && (
                 <span>
                   {' '}ໃນຊ່ວງ {new Date(startDate).toLocaleDateString('th-TH')} - {new Date(endDate).toLocaleDateString('th-TH')}
                 </span>
               )}
               <span className="ml-4">
-                ({readyToCheckoutCheckIns.length} ລາຍການພ້ອມເຊັກເອົາ)
+                (
+                {filteredCombinedData.filter(item => item.type === 'checkin').length} ເຂົ້າພັກ, {' '}
+                {filteredCombinedData.filter(item => item.type === 'checkout').length} ເຊັກເອົາແລ້ວ
+                )
               </span>
             </Typography>
           </Box>
 
           <CheckOutTable
-            data={filteredCheckOuts}
+            data={filteredCombinedData}
             loading={checkOutLoading || checkInLoading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onCheckout={handleSelectCheckIn}
             currentUserRole={userRoleId}
+            showCheckoutButtons={false}
           />
         </Grid>
       </Grid>

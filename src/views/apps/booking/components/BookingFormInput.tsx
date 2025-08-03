@@ -23,6 +23,7 @@ import MenuItem from '@mui/material/MenuItem'
 import FormHelperText from '@mui/material/FormHelperText'
 import CircularProgress from '@mui/material/CircularProgress'
 import Divider from '@mui/material/Divider'
+import Autocomplete from '@mui/material/Autocomplete'
 
 // Store Imports
 import { useRoomStore } from '@/@core/infrastructure/store/rooms/room.store'
@@ -129,30 +130,34 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
 
   // ส่งข้อมูลฟอร์มไปยัง API
   const onSubmit = async (data: BookingInputForm) => {
+    // ป้องกันการ submit ซ้ำ
+    if (isSubmitting) {
+      return
+    }
+
     try {
-      // เตรียมข้อมูลการจอง และแปลงวันที่เป็น Date object
+      console.log('Form data received:', data)
+      
+      // แปลง Date object เป็น string format สำหรับ API (YYYY-MM-DD)
       const bookingData = {
-        BookingDate: typeof data.BookingDate === 'string' ? parseDate(data.BookingDate) : data.BookingDate,
         RoomId: data.RoomId,
-        CheckinDate: typeof data.CheckinDate === 'string' ? parseDate(data.CheckinDate) : data.CheckinDate,
-        CheckoutDate: typeof data.CheckoutDate === 'string' ? parseDate(data.CheckoutDate) : data.CheckoutDate,
         CustomerId: data.CustomerId,
         StaffId: data.StaffId,
-        StatusId: data.StatusId
-      }
-
-      if (isEditMode && selectedItem) {
-        // อัปเดตการจอง
-        await update(selectedItem.BookingId, bookingData)
-        toast.success(MESSAGES.SUCCESS.EDIT)
-      } else {
-        // สร้างการจองใหม่
-        await create(bookingData)
-        toast.success(MESSAGES.SUCCESS.SAVE)
+        StatusId: data.StatusId,
+        BookingDate: typeof data.BookingDate === 'string' ? data.BookingDate : formatDateForInput(data.BookingDate as Date),
+        CheckinDate: typeof data.CheckinDate === 'string' ? data.CheckinDate : formatDateForInput(data.CheckinDate as Date),
+        CheckoutDate: typeof data.CheckoutDate === 'string' ? data.CheckoutDate : formatDateForInput(data.CheckoutDate as Date)
       }
       
-      // โหลดข้อมูลใหม่จาก API
-      await fetchItems()
+      console.log('Prepared booking data for API:', bookingData)
+
+      if (isEditMode && selectedItem) {
+        // อัปเดตการจอง - store method จะจัดการ toast และ refresh ข้อมูลเอง
+        await update(selectedItem.BookingId, bookingData)
+      } else {
+        // สร้างการจองใหม่ - store method จะจัดการ toast และ refresh ข้อมูลเอง
+        await create(bookingData)
+      }
       
       // ปิดฟอร์ม
       handleClose()
@@ -163,6 +168,7 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
       }
     } catch (error) {
       console.error('Error saving booking:', error)
+      // แสดง error toast เฉพาะเมื่อเกิดข้อผิดพลาด
       toast.error(isEditMode ? MESSAGES.ERROR.EDIT : MESSAGES.ERROR.SAVE)
     }
   }
@@ -270,63 +276,115 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
               />
             </Grid>
 
-            {/* ลูกค้า */}
+            {/* ລູກຄ້າ */}
             <Grid item xs={12} md={6}>
               <Controller
                 name='CustomerId'
                 control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.CustomerId} disabled={isSubmitting}>
-                    <InputLabel id='customer-select-label'>ລູກຄ້າ</InputLabel>
-                    <Select
-                      {...field}
-                      labelId='customer-select-label'
-                      label='ລູກຄ້າ'
-                      value={field.value || 0}
-                      sx={{ borderRadius: 1 }}
-                    >
-                      <MenuItem value={0} disabled>
-                        <em>ເລືອກລູກຄ້າ</em>
-                      </MenuItem>
-                      {customers.map(customer => (
-                        <MenuItem key={customer.CustomerId} value={customer.CustomerId}>
-                          {customer.CustomerName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.CustomerId && <FormHelperText>{errors.CustomerId.message?.toString()}</FormHelperText>}
-                  </FormControl>
-                )}
+                render={({ field }) => {
+                  const selectedCustomer = customers.find(customer => customer.CustomerId === field.value) || null
+                  return (
+                    <Autocomplete
+                      options={customers}
+                      getOptionLabel={(option) => `${option.CustomerName} (${option.CustomerTel || 'ບໍ່ມີເບີໂທ'})`}
+                      value={selectedCustomer}
+                      onChange={(_, newValue) => {
+                        field.onChange(newValue ? newValue.CustomerId : 0)
+                      }}
+                      disabled={isSubmitting}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label='ລູກຄ້າ'
+                          placeholder='ຄົ້ນຫາຊື່ ຫຼື ເບີໂທລູກຄ້າ...'
+                          error={!!errors.CustomerId}
+                          helperText={errors.CustomerId?.message?.toString()}
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option.CustomerId}>
+                          <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                            <div style={{ fontWeight: 'bold' }}>{option.CustomerName}</div>
+                            <div style={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                              📞 {option.CustomerTel || 'ບໍ່ມີເບີໂທ'}
+                            </div>
+                          </div>
+                        </li>
+                      )}
+                      filterOptions={(options, { inputValue }) => {
+                        const filtered = options.filter(option => 
+                          option.CustomerName.toLowerCase().includes(inputValue.toLowerCase()) ||
+                          (option.CustomerTel && option.CustomerTel.includes(inputValue))
+                        )
+                        return filtered
+                      }}
+                      noOptionsText='ບໍ່ພົບລູກຄ້າ'
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+                    />
+                  )
+                }}
               />
             </Grid>
 
-            {/* พนักงาน */}
+            {/* ພະນັກງານ */}
             <Grid item xs={12} md={6}>
               <Controller
                 name='StaffId'
                 control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.StaffId} disabled={isSubmitting}>
-                    <InputLabel id='staff-select-label'>ພະນັກງານ</InputLabel>
-                    <Select
-                      {...field}
-                      labelId='staff-select-label'
-                      label='ພະນັກງານ'
-                      value={field.value || 0}
-                      sx={{ borderRadius: 1 }}
-                    >
-                      <MenuItem value={0} disabled>
-                        <em>ເລືອກພະນັກງານ</em>
-                      </MenuItem>
-                      {staffs.map(staff => (
-                        <MenuItem key={staff.StaffId} value={staff.StaffId}>
-                          {staff.StaffName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.StaffId && <FormHelperText>{errors.StaffId.message?.toString()}</FormHelperText>}
-                  </FormControl>
-                )}
+                render={({ field }) => {
+                  const selectedStaff = staffs.find(staff => staff.StaffId === field.value) || null
+                  return (
+                    <Autocomplete
+                      options={staffs}
+                      getOptionLabel={(option) => `${option.StaffName}`}
+                      value={selectedStaff}
+                      onChange={(_, newValue) => {
+                        field.onChange(newValue ? newValue.StaffId : 0)
+                      }}
+                      disabled={isSubmitting}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label='ພະນັກງານ'
+                          placeholder='ຄົ້ນຫາຊື່ພະນັກງານ...'
+                          error={!!errors.StaffId}
+                          helperText={errors.StaffId?.message?.toString()}
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option.StaffId}>
+                          <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                            <div style={{ fontWeight: 'bold' }}>{option.StaffName}</div>
+                          </div>
+                        </li>
+                      )}
+                      filterOptions={(options, { inputValue }) => {
+                        const filtered = options.filter(option => 
+                          option.StaffName.toLowerCase().includes(inputValue.toLowerCase())
+                        )
+                        return filtered
+                      }}
+                      noOptionsText='ບໍ່ພົບພະນັກງານ'
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1 } }}
+                    />
+                  )
+                }}
               />
             </Grid>
 

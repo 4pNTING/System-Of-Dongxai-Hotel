@@ -10,12 +10,21 @@ export interface RoomListState {
   items: Room[];
   isLoading: boolean;
   filters: Record<string, any>;
+  stats: {
+    totalRooms: number;
+    availableRooms: number;
+    occupiedRooms: number;
+    maintenanceRooms: number;
+    outOfOrderRooms: number;
+    occupancyRate: number;
+  };
   setFilters: (filters: Record<string, any>) => void;
   setItems: (items: Room[]) => void;
   addItem: (item: Room) => void;
   removeItem: (id: number) => void;
   updateItem: (id: number, updatedItem: Room) => void;
   fetchItems: () => Promise<void>;
+  fetchStats: () => Promise<void>;
   delete: (id: number) => Promise<void>;
 }
 

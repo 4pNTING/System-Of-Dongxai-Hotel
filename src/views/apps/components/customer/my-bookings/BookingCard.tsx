@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface BookingCardProps {
   booking: {
@@ -13,28 +13,44 @@ interface BookingCardProps {
     rating?: number;
     reviewCount?: number;
     description?: string;
+    nights?: number;
+    totalPrice?: number;
+    // Customer information
+    customerName: string;
+    customerTel?: string;
   };
+  language?: 'lao' | 'thai'; // เพิ่มการรองรับภาษา
   onViewDetail?: (bookingId: number) => void;
   onCancel?: (bookingId: number) => void;
   onReview?: (bookingId: number) => void;
+  onPrint?: (bookingId: number) => void;
 }
 
 const BookingCard: React.FC<BookingCardProps> = ({ 
   booking, 
+  language = 'lao', // ค่าเริ่มต้นเป็นภาษาลาว
   onViewDetail, 
   onCancel, 
-  onReview 
+  onReview,
+  onPrint 
 }) => {
+  const [imageError, setImageError] = useState(false);
+
+  // ฟังก์ชันแปลภาษา
+  const getText = (laoText: string, thaiText: string) => {
+    return language === 'thai' ? thaiText : laoText;
+  };
+
   // กำหนดสีของ status badge
-  const getStatusColor = (statusId: number) => {
-    switch (statusId) {
-      case 1: return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // Pending
-      case 2: return 'bg-blue-100 text-blue-800 border-blue-200';       // Confirmed
-      case 3: return 'bg-purple-100 text-purple-800 border-purple-200'; // Checked In
-      case 4: return 'bg-green-100 text-green-800 border-green-200';    // Checked Out
-      case 5: return 'bg-gray-100 text-gray-800 border-gray-200';       // Cancelled
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+  const getStatusStyle = (statusId: number) => {
+    const styles = {
+      1: { bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', icon: '⏳' },
+      2: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: '✅' },
+      3: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', icon: '🏨' },
+      4: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: '🎉' },
+      5: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: '❌' },
+    };
+    return styles[statusId as keyof typeof styles] || styles[1];
   };
 
   // เช็คว่าสามารถยกเลิกได้หรือไม่
@@ -51,10 +67,16 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
   // คำนวณจำนวนคืน
   const calculateNights = () => {
+    if (booking.nights) return booking.nights;
     const checkin = new Date(booking.checkinDate);
     const checkout = new Date(booking.checkoutDate);
     const diffTime = Math.abs(checkout.getTime() - checkin.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // จัดรูปแบบสกุลเงิน
+  const formatCurrency = (amount: number) => {
+    return `₭${amount.toLocaleString()}`;
   };
 
   // Star Rating Component
@@ -64,220 +86,203 @@ const BookingCard: React.FC<BookingCardProps> = ({
       stars.push(
         <span
           key={i}
-          className={`text-lg ${i <= rating ? 'text-yellow-400' : 'text-gray-300'}`}
+          className={`text-sm ${i <= rating ? 'text-yellow-400' : 'text-gray-300'}`}
         >
           ★
         </span>
       );
     }
-    return <div className="flex">{stars}</div>;
+    return <div className="flex items-center gap-0.5">{stars}</div>;
   };
 
+  const statusStyle = getStatusStyle(booking.statusId);
+  const nights = calculateNights();
+  const totalPrice = booking.totalPrice || (booking.roomPrice * nights);
+
   return (
-    <div className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden max-w-sm mx-auto">
-      {/* Room Image */}
-      <div className="relative">
-        <img
-          src={booking.roomImage || '/images/rooms/default-room.jpg'}
-          alt={booking.roomType}
-          className="w-full h-48 object-cover"
-        />
+    <div className="w-full h-full bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 transform hover:scale-[1.02] hover:border-blue-200 group flex flex-col">
+      {/* Image Section - ลดความสูงลง */}
+      <div className="relative h-40 overflow-hidden flex-shrink-0">
+        {!imageError ? (
+          <img
+            src={booking.roomImage || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop'}
+            alt={booking.roomType}
+            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🏨</div>
+              <div className="text-sm text-gray-600">รูปภาพห้องพัก</div>
+            </div>
+          </div>
+        )}
+        
         {/* Status Badge */}
         <div className="absolute top-3 right-3">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.statusId)}`}>
+          <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border} shadow-sm`}>
+            <span className="text-xs">{statusStyle.icon}</span>
             {booking.statusName}
+          </span>
+        </div>
+
+        {/* Booking ID */}
+        <div className="absolute top-3 left-3">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-white/90 text-gray-800 shadow-sm">
+            #{booking.bookingId}
           </span>
         </div>
       </div>
       
-      <div className="p-4">
-        {/* Header with Room Type */}
-        <div className="mb-3">
-          <h3 className="text-lg font-semibold text-gray-800 mb-1">
+      {/* Card Content */}
+      <div className="flex-1 flex flex-col p-3">
+        {/* Header with Room Type and Price */}
+        <div className="mb-4">
+          <h3 className="text-lg font-bold text-gray-900 mb-2 leading-tight line-clamp-1">
             {booking.roomType}
           </h3>
+          <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 p-2 rounded-lg">
+            <span className="text-xs font-medium text-gray-700">{getText('ລາຄາຕໍ່ຄືນ', 'ราคาต่อคืน')}</span>
+            <span className="text-sm font-bold text-blue-600 flex items-center gap-1">
+              <span className="text-xs">₭</span>{booking.roomPrice.toLocaleString()}
+            </span>
+          </div>
         </div>
 
         {/* Rating and Reviews */}
         {booking.rating && (
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4 p-2 bg-gray-50 rounded-lg">
             <StarRating rating={booking.rating} />
-            <span className="text-sm text-gray-600">
-              {booking.rating} Star | {booking.reviewCount || 0} reviews
+            <span className="text-xs text-gray-600">
+              {booking.rating} ດາວ ({booking.reviewCount || 0} ລີວິວ)
             </span>
           </div>
         )}
 
         {/* Room Description */}
-        <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-          {booking.description || "ຫ້ອງພັກສະດວກສະບາຍ ພ້ອມສິ່ງອຳນວຍຄວາມສະດວກຄົບຄັນ ເໝາະສຳລັບການພັກຜ່ອນແລະການເດີນທາງທຸລະກິດ"}
-        </p>
+        {booking.description && (
+          <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
+            {booking.description}
+          </p>
+        )}
 
-        <hr className="my-3 border-gray-200" />
-
-        {/* Booking Details */}
-        <div className="space-y-2">
-          {/* Check-in/out Dates */}
-          <div className="flex items-center gap-2">
-            <span className="text-blue-500">📅</span>
-            <span className="text-sm">
-              <span className="font-medium">ເຊັກອິນ:</span> {formatDate(booking.checkinDate)}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-red-500">📅</span>
-            <span className="text-sm">
-              <span className="font-medium">ເຊັກເອົາ:</span> {formatDate(booking.checkoutDate)}
-            </span>
-          </div>
-
-          {/* Duration */}
-          <div className="flex items-center gap-2">
-            <span className="text-purple-500">🏨</span>
-            <span className="text-sm">
-              <span className="font-medium">ຈຳນວນ:</span> {calculateNights()} ຄືນ
-            </span>
-          </div>
-
-          {/* Price */}
-          <div className="flex items-center gap-2">
-            <span className="text-green-500">💰</span>
-            <span className="text-sm">
-              <span className="font-medium">ລາຄາ:</span> ฿{booking.roomPrice.toLocaleString()}/ຄືນ
-            </span>
-          </div>
-
-          {/* Total Price */}
-          <div className="bg-gray-50 p-3 rounded-lg mt-3">
-            <div className="text-center font-semibold text-gray-800">
-              ລວມທັງໝົດ: ฿{(booking.roomPrice * calculateNights()).toLocaleString()}
+        {/* Booking Details - กระชับขึ้น */}
+        <div className="flex-1 flex flex-col justify-between mb-2">
+          {/* Check-in/out Dates - แบบกระชับ */}
+          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 p-3 rounded-xl border border-emerald-100 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-xs font-medium text-emerald-700">🏠 {getText('ເຊັກອິນ', 'เช็คอิน')}</span>
+                </div>
+                <span className="text-xs font-bold text-gray-800 bg-white px-2 py-1 rounded-md shadow-sm">
+                  {formatDate(booking.checkinDate)}
+                </span>
+              </div>
+              
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-xs font-medium text-rose-700">🚪 {getText('ເຊັກເອົາ', 'เช็คเอาต์')}</span>
+                </div>
+                <span className="text-xs font-bold text-gray-800 bg-white px-2 py-1 rounded-md shadow-sm">
+                  {formatDate(booking.checkoutDate)}
+                </span>
+              </div>
+              
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-xs font-medium text-blue-700">🌙 {getText('ຄືນ', 'คืน')}</span>
+                </div>
+                <span className="text-xs font-bold text-gray-800 bg-white px-2 py-1 rounded-md shadow-sm">
+                  {calculateNights()}
+                </span>
+              </div>
             </div>
+          </div>
+        </div>
+
+        {/* Total Price - กระชับขึ้น */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-2 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-gray-600">ລາຄາລວມທັງໝົດ</div>
+              <div className="text-xs text-gray-500">
+                {nights} {getText("ຄືນ", "คืน")} × {formatCurrency(booking.roomPrice)}
+              </div>
+            </div>
+            <div className="text-lg font-bold text-green-600">
+              {formatCurrency(totalPrice)}
+            </div>
+          </div>
+        </div>
+        
+        {/* Customer Information - กระชับขึ้น */}
+        <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-2 rounded-lg border border-gray-200 mt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1">
+                <span className="text-xs">👤</span>
+                <span className="text-xs font-medium text-gray-700">
+                  {getText('ຂໍ້ມູນລູກຄ້າ', 'ข้อมูลลูกค้า')}
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-gray-800">
+                {booking.customerName}
+              </div>
+            </div>
+            {booking.customerTel && (
+              <div className="text-xs text-gray-600">
+                📞 {booking.customerTel}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="p-4 pt-0">
-        <div className="flex gap-2">
+      <div className="px-3 pb-3">
+        <div className="flex flex-col gap-1">
+          {/* Primary Action */}
           <button 
             onClick={() => onViewDetail?.(booking.bookingId)}
-            className="flex-1 px-3 py-2 text-sm border border-blue-500 text-blue-500 rounded-md hover:bg-blue-50 transition-colors duration-200 flex items-center justify-center gap-1"
+            className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1 text-sm"
           >
-            <span>📍</span>
+            <span className="text-xs">👁️</span>
             ລາຍລະອຽດ
           </button>
           
-          {booking.statusId === 4 && ( // Checked out - can review
-            <button 
-              onClick={() => onReview?.(booking.bookingId)}
-              className="flex-1 px-3 py-2 text-sm border border-gray-500 text-gray-500 rounded-md hover:bg-gray-50 transition-colors duration-200"
-            >
-              ລີວິວ
-            </button>
-          )}
-          
-          {canCancel && (
-            <button 
-              onClick={() => onCancel?.(booking.bookingId)}
-              className="flex-1 px-3 py-2 text-sm border border-red-500 text-red-500 rounded-md hover:bg-red-50 transition-colors duration-200"
-            >
-              ຍົກເລີກ
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Example usage component
-const BookingCardExample = () => {
-  const sampleBookings = [
-    {
-      bookingId: 1,
-      roomImage: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop",
-      roomType: "Deluxe Room",
-      roomPrice: 2500,
-      checkinDate: "2024-01-15",
-      checkoutDate: "2024-01-18",
-      statusId: 2,
-      statusName: "ຢືນຢັນແລ້ວ",
-      rating: 4,
-      reviewCount: 128,
-      description: "ຫ້ອງພັກຫຼູພ້ອມສິ່ງອຳນວຍຄວາມສະດວກຄົບຄັນ ວິວເມືອງທີ່ສວຍງາມ ເໝາະສຳລັບການພັກຜ່ອນແລະການເດີນທາງທຸລະກິດ ມີລະບຽງສ່ວນຕົວແລະອ່າງອາບນ້ຳແບບຈາກຸສຊີ"
-    },
-    {
-      bookingId: 2,
-      roomImage: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop",
-      roomType: "Standard Room",
-      roomPrice: 1800,
-      checkinDate: "2024-02-01",
-      checkoutDate: "2024-02-03",
-      statusId: 1,
-      statusName: "ລໍຖ້າການຢືນຢັນ",
-      rating: 4,
-      reviewCount: 89,
-      description: "ຫ້ອງພັກສະດວກສະບາຍ ພ້ອມສິ່ງອຳນວຍຄວາມສະດວກຄົບຄັນ ເໝາະສຳລັບການພັກຜ່ອນແລະການເດີນທາງທຸລະກິດ"
-    },
-    {
-      bookingId: 3,
-      roomImage: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=400&h=300&fit=crop",
-      roomType: "Suite Room",
-      roomPrice: 4200,
-      checkinDate: "2023-12-20",
-      checkoutDate: "2023-12-23",
-      statusId: 4,
-      statusName: "ເຊັກເອົາແລ້ວ",
-      rating: 5,
-      reviewCount: 156,
-      description: "ຫ້ອງສະວີດຫຼູຫຼາພ້ອມຫ້ອງນັ່ງເລ່ນແຍກ ຫ້ອງນ້ຳໃຫຍ່ພ້ອມອ່າງແຊ່ຕົວ ວິວທະເລທີ່ງົດງາມ ເໝາະສຳລັບຄູ່ຮັກແລະຄອບຄົວ"
-    }
-  ];
-
-  const handleViewDetail = (bookingId: number) => {
-    alert(`ເບິ່ງລາຍລະອຽດການຈອງ ID: ${bookingId}`);
-  };
-
-  const handleCancel = (bookingId: number) => {
-    if (confirm('ທ່ານຕ້ອງການຍົກເລີກການຈອງນີ້ບໍ?')) {
-      alert(`ຍົກເລີກການຈອງ ID: ${bookingId}`);
-    }
-  };
-
-  const handleReview = (bookingId: number) => {
-    alert(`ຂຽນລີວິວສຳລັບການຈອງ ID: ${bookingId}`);
-  };
-
-  return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">
-          ການຈອງຂອງຂ້ອຍ
-        </h1>
-        
-        {/* Grid layout for multiple cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sampleBookings.map((booking) => (
-            <BookingCard 
-              key={booking.bookingId}
-              booking={booking}
-              onViewDetail={handleViewDetail}
-              onCancel={handleCancel}
-              onReview={handleReview}
-            />
-          ))}
-        </div>
-        
-        {/* Empty state example */}
-        <div className="mt-12 text-center">
-          <div className="bg-white rounded-lg p-8 shadow-md max-w-md mx-auto">
-            <div className="text-6xl mb-4">🏨</div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">ຍັງບໍ່ມີການຈອງ</h3>
-            <p className="text-gray-500 mb-4">ເລີ່ມຕົ້ນການເດີນທາງຂອງທ່ານດ້ວຍການຈອງຫ້ອງພັກກັບເຮົາ</p>
-            <button className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 transition-colors duration-200">
-              ເລືອກຫ້ອງພັກ
-            </button>
+          {/* Secondary Actions */}
+          <div className="flex gap-2">
+            {booking.statusId === 4 && ( // Checked out - can review
+              <button 
+                onClick={() => onReview?.(booking.bookingId)}
+                className="flex-1 px-3 py-2 text-sm border border-yellow-500 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+              >
+                <span className="text-xs">⭐</span>
+                ລີວິວ
+              </button>
+            )}
+            
+            {onPrint && (
+              <button 
+                onClick={() => onPrint?.(booking.bookingId)}
+                className="flex-1 px-3 py-2 text-sm border border-gray-400 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+              >
+                <span className="text-xs">🖨️</span>
+                ພິມ
+              </button>
+            )}
+            
+            {canCancel && (
+              <button 
+                onClick={() => onCancel?.(booking.bookingId)}
+                className="flex-1 px-3 py-2 text-sm border border-red-400 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+              >
+                <span className="text-xs">❌</span>
+                ຍົກເລີກ
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -285,4 +290,4 @@ const BookingCardExample = () => {
   );
 };
 
-export default BookingCardExample;
+export default BookingCard;

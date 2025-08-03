@@ -12,6 +12,14 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   items: [],
   isLoading: false,
   filters: {},
+  stats: {
+    totalRooms: 0,
+    availableRooms: 0,
+    occupiedRooms: 0,
+    maintenanceRooms: 0,
+    outOfOrderRooms: 0,
+    occupancyRate: 0,
+  },
   
   // สถานะเริ่มต้นของฟอร์มห้องพัก
   isVisible: false,
@@ -61,6 +69,43 @@ export const useRoomStore = create<RoomState>((set, get) => ({
       setLoading(false);
       setError(error.message || 'Failed to fetch rooms');
       console.error('Error fetching rooms:', error);
+    }
+  },
+
+  fetchStats: async () => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
+    
+    try {
+      setLoading(true);
+      
+      const rooms = get().items;
+      
+      // Calculate room statistics from current room data
+      const totalRooms = rooms.length;
+      const availableRooms = rooms.filter(room => room.roomStatus?.StatusName === 'Available').length;
+      const occupiedRooms = rooms.filter(room => room.roomStatus?.StatusName === 'Occupied').length;
+      const maintenanceRooms = rooms.filter(room => room.roomStatus?.StatusName === 'Maintenance').length;
+      const outOfOrderRooms = rooms.filter(room => room.roomStatus?.StatusName === 'Out of Order').length;
+      
+      // Calculate occupancy rate (occupied rooms / total rooms * 100)
+      const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+      
+      const stats = {
+        totalRooms,
+        availableRooms,
+        occupiedRooms,
+        maintenanceRooms,
+        outOfOrderRooms,
+        occupancyRate,
+      };
+      
+      set({ stats });
+      setLoading(false);
+    } catch (error: any) {
+      setLoading(false);
+      setError(error.message || 'Failed to fetch room statistics');
+      console.error('Error fetching room stats:', error);
     }
   },
   

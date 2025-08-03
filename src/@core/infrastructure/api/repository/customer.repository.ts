@@ -3,7 +3,7 @@ import { ApiResponse } from "@core/domain/models/common/api.model";
 import { CustomerRepositoryPort } from "@core/interface/repositoriesport/customer.port";
 import { CUSTOMER_QUERY } from "@core/infrastructure/queries/customer.query";
 import { CUSTOMER_ENDPOINTS } from "../config/endpoints.config";
-import { CustomerFormData } from "@core/domain/models/customer/form.model";
+import { CustomerFormData, CustomerRegistrationData } from "@core/domain/models/customer/form.model";
 import { Customer } from "@core/domain/models/customer/list.model";
 
 export class CustomerRepository implements CustomerRepositoryPort {
@@ -32,6 +32,16 @@ export class CustomerRepository implements CustomerRepositoryPort {
     async create(data: CustomerFormData): Promise<Customer> {
         try {
             const response = await api.post<ApiResponse<Customer>>(this.URL.CREATE, data);
+            return response.data.data;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Frontend Registration - สำหรับลูกค้าสมัครเอง
+    async register(data: CustomerRegistrationData): Promise<Customer> {
+        try {
+            const response = await api.post<ApiResponse<Customer>>(this.URL.REGISTER, data);
             return response.data.data;
         } catch (error) {
             throw error;

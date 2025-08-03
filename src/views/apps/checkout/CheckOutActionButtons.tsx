@@ -14,19 +14,31 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 
+// Icon Imports  
+import LogoutIcon from '@mui/icons-material/Logout'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+
 interface CheckOutActionButtonsProps {
-  item: any // CheckOut item
+  item: any // CheckOut or CheckIn item
+  type: 'checkin' | 'checkout' // Type of item (checkin = ready for checkout, checkout = completed)
+  onCheckout?: (item: any) => Promise<void>
   onEdit?: (item: any) => void
   onDelete?: (item: any) => Promise<void>
   currentUserRole?: number
+  showCheckoutButtons?: boolean // Show checkout buttons for currently checked-in rooms
 }
 
 const CheckOutActionButtons = ({ 
   item, 
+  type,
+  onCheckout,
   onEdit,
   onDelete,
-  currentUserRole = 0 
+  currentUserRole = 0,
+  showCheckoutButtons = false
 }: CheckOutActionButtonsProps) => {
+  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [canPerformActions, setCanPerformActions] = useState(false)
@@ -48,104 +60,168 @@ const CheckOutActionButtons = ({
       
       return 0
     } catch (error) {
-      console.error('Error getting user role from session:', error)
+      console.error('Error getting user role:', error)
       return 0
     }
   }
-  
+
   useEffect(() => {
     const userRole = getUserRoleFromSession()
-    const isManager = userRole === 4
-    const isAdmin = userRole === 1
-    const isReceptionist = userRole === 2
-    
-    setCanPerformActions(isManager || isAdmin || isReceptionist)
-  }, [item, currentUserRole, session])
+    setCanPerformActions(userRole >= 2) // Staff level and above can perform actions
+  }, [session, currentUserRole])
 
-  // Handlers
-  const handleDeleteClick = () => setDeleteDialogOpen(true)
-  const handleEditClick = () => onEdit && onEdit(item)
-  
-  const handleDeleteConfirm = async () => {
-    if (!onDelete) return
+  // Handle checkout action for currently staying guests
+  const handleCheckout = async () => {
+    if (!onCheckout || !canPerformActions) return
+    
+    setIsProcessing(true)
     try {
-      setIsProcessing(true)
-      await onDelete(item)
-      setDeleteDialogOpen(false)
+      await onCheckout(item)
+      setCheckoutDialogOpen(false)
     } catch (error) {
-      console.error('Error deleting:', error)
+      console.error('Checkout failed:', error)
     } finally {
       setIsProcessing(false)
     }
   }
-  
-  const handleDialogCancel = () => {
-    setDeleteDialogOpen(false)
+
+  // Handle delete action for completed checkouts
+  const handleDelete = async () => {
+    if (!onDelete || !canPerformActions) return
+    
+    setIsProcessing(true)
+    try {
+      await onDelete(item)
+      setDeleteDialogOpen(false)
+    } catch (error) {
+      console.error('Delete failed:', error)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  if (!canPerformActions) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 40 }}>
+        <Typography variant="caption" color="textSecondary">
+          ບໍ່ມີສິດ
+        </Typography>
+      </Box>
+    )
   }
 
   return (
-    <>
-      <div className='flex items-center justify-center gap-2'>
-        {/* ปุ่มดูรายละเอียด */}
-        <Tooltip title="ດູລາຍລະອຽດ">
+    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+      {/* Checkout Button for CheckIn Records (Currently Staying) */}
+      {type === 'checkin' && onCheckout && (
+        <Tooltip title="ເຊັກເອົາ">
           <IconButton
-            color='info'
-            size='small'
-            onClick={handleEditClick}
+            size="small"
+            color="success"
+            onClick={() => setCheckoutDialogOpen(true)}
+            sx={{
+              '&:hover': {
+                backgroundColor: 'success.lighter',
+                transform: 'scale(1.1)'
+              },
+              transition: 'all 0.2s ease-in-out'
+            }}
           >
-            <i className='tabler-eye text-lg' />
+            <LogoutIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+      )}
 
-        {/* ปุ่มลบ - เฉพาะ Admin/Manager */}
-        {(getUserRoleFromSession() === 1 || getUserRoleFromSession() === 4) && onDelete && (
-          <Tooltip title={canPerformActions ? 'ລົບ' : 'ບໍ່ມີສິດການລົບ'}>
-            <span>
-              <IconButton
-                color='error'
-                onClick={handleDeleteClick}
-                size='small'
-                disabled={!canPerformActions}
-                sx={{ 
-                  opacity: canPerformActions ? 1 : 0.3,
-                  cursor: canPerformActions ? 'pointer' : 'not-allowed'
-                }}
-              >
-                <i className='tabler-trash text-lg' />
-              </IconButton>
-            </span>
-          </Tooltip>
-        )}
-      </div>
+      {/* Edit Button for CheckOut Records (Completed Checkouts) */}
+      {type === 'checkout' && onEdit && (
+        <Tooltip title="ແກ້ໄຂ">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => onEdit(item)}
+            sx={{
+              '&:hover': {
+                backgroundColor: 'primary.lighter',
+                transform: 'scale(1.1)'
+              },
+              transition: 'all 0.2s ease-in-out'
+            }}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={handleDialogCancel} maxWidth="sm" fullWidth>
-        <DialogTitle>ຢືນຢັນການລົບ</DialogTitle>
+      {/* Delete Button for CheckOut Records (Completed Checkouts) */}
+      {type === 'checkout' && onDelete && (
+        <Tooltip title="ລຶບ">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => setDeleteDialogOpen(true)}
+            sx={{
+              '&:hover': {
+                backgroundColor: 'error.lighter',
+                transform: 'scale(1.1)'
+              },
+              transition: 'all 0.2s ease-in-out'
+            }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+
+      {/* Checkout Confirmation Dialog */}
+      <Dialog open={checkoutDialogOpen} onClose={() => setCheckoutDialogOpen(false)}>
+        <DialogTitle>ຢືນຢັນການເຊັກເອົາ</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mb: 2 }}>
-            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລົບການເຊັກເອົານີ້? ການກະທຳນີ້ບໍ່ສາມາດຍ້ອນກັບໄດ້.
+          <DialogContentText>
+            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການເຊັກເອົາລູກຄ້າອອກຈາກຫ້ອງ {item.RoomId || item.room?.RoomId}?
+            <br />
+            <strong>ລູກຄ້າ:</strong> {item.customer?.CustomerName || item.checkIn?.customer?.CustomerName}
           </DialogContentText>
-          <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
-            <Typography variant="body2"><strong>ລະຫັດເຊັກເອົາ:</strong> #{item.CheckOutId}</Typography>
-            <Typography variant="body2"><strong>ລູກຄ້າ:</strong> {item.checkIn?.customer?.CustomerName || 'N/A'}</Typography>
-            <Typography variant="body2"><strong>ຫ້ອງພັກ:</strong> {item.RoomId}</Typography>
-            <Typography variant="body2"><strong>ວັນທີເຊັກເອົາ:</strong> {new Date(item.CheckOutDate).toLocaleDateString('th-TH')}</Typography>
-          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDialogCancel} disabled={isProcessing}>ຍົກເລີກ</Button>
+          <Button onClick={() => setCheckoutDialogOpen(false)} disabled={isProcessing}>
+            ຍົກເລີກ
+          </Button>
           <Button 
-            onClick={handleDeleteConfirm} 
-            variant="contained" 
-            color="error"
+            onClick={handleCheckout} 
+            color="success"
+            variant="contained"
             disabled={isProcessing}
-            startIcon={isProcessing ? <CircularProgress size={20} /> : <i className='tabler-trash' />}
+            startIcon={isProcessing ? <CircularProgress size={16} /> : null}
           >
-            {isProcessing ? 'ກຳລັງລົບ...' : 'ລົບ'}
+            {isProcessing ? 'ກຳລັງດຳເນີນການ...' : 'ເຊັກເອົາ'}
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>ຢືນຢັນການລຶບ</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບການເຊັກເອົານີ້? ການດຳເນີນການນີ້ບໍ່ສາມາດຍົກເລີກໄດ້.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={isProcessing}>
+            ຍົກເລີກ
+          </Button>
+          <Button 
+            onClick={handleDelete} 
+            color="error"
+            variant="contained"
+            disabled={isProcessing}
+            startIcon={isProcessing ? <CircularProgress size={16} /> : null}
+          >
+            {isProcessing ? 'ກຳລັງລຶບ...' : 'ລຶບ'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   )
 }
 

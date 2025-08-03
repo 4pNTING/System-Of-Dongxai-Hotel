@@ -10,12 +10,15 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
+import Button from '@mui/material/Button';
+// Removed problematic MUI icon import to fix vendor-chunks error
 
 // Component Imports
 import { BookingSeach } from '@/views/apps/booking/BookingSeach';
 import BookingTable from '@views/apps/booking/BookingTable';
 import BookingCards from '@views/apps/booking/BookingCards';
-import { BookingDateRangePicker } from '@views/apps/booking/BookingDateRangePicker'; 
+import { BookingDateRangePicker } from '@views/apps/booking/BookingDateRangePicker';
+import BookingFormInput from '@views/apps/booking/components/BookingFormInput';
 
 // Store Imports
 import { useBookingStore } from '@core/infrastructure/store/booking/booking.store';
@@ -35,6 +38,8 @@ export default function BookingPage() {
   const [searchValue, setSearchValue] = useState('');
   const [startDate, setStartDate] = useState(''); // เริ่มต้นแสดงข้อมูลทั้งหมด
   const [endDate, setEndDate] = useState('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const { data: session, status } = useSession();
   const isLoadingAuth = status === 'loading';
@@ -153,6 +158,29 @@ export default function BookingPage() {
     setEndDate('');
   };
 
+  // Handlers for booking form
+  const handleAddBooking = () => {
+    setSelectedBooking(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsFormOpen(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setSelectedBooking(null);
+  };
+
+  const handleFormSaved = () => {
+    setIsFormOpen(false);
+    setSelectedBooking(null);
+    fetchItems(); // Refresh the booking list
+    toast.success('ບັນທຶກການຈອງສໍາເລັດແລ້ວ');
+  };
+
   const hasDateFilter = Boolean(startDate && endDate);
 
   useEffect(() => {
@@ -177,7 +205,6 @@ export default function BookingPage() {
           <Typography variant="h4" fontWeight={600}>
             ການຈອງ
           </Typography>
-         
         </Box>
       </Grid>
 
@@ -194,22 +221,37 @@ export default function BookingPage() {
       {/* Search and Table Section */}
       <Grid item xs={12}>
         <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-            <BookingSeach
-              value={searchValue}
-              onFilterChange={handleFilterChange}
-            />
-            <BookingDateRangePicker
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={handleEndDateChange}
-              onClearFilter={handleClearFilter}
-              hasFilter={hasDateFilter}
-            />
+          <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <BookingSeach
+                value={searchValue}
+                onFilterChange={handleFilterChange}
+              />
+              <BookingDateRangePicker
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={handleEndDateChange}
+                onClearFilter={handleClearFilter}
+                hasFilter={hasDateFilter}
+              />
+            </Box>
+            
+            <Button
+              variant="contained"
+              onClick={handleAddBooking}
+              sx={{
+                '&::before': {
+                  content: '"+"',
+                  marginRight: '8px',
+                  fontSize: '18px',
+                  fontWeight: 'bold'
+                }
+              }}
+            >
+              ເພີ່ມການຈອງໃໝ່
+            </Button>
           </Box>
-
-          
         </Box>
 
         <BookingTable
@@ -219,9 +261,18 @@ export default function BookingPage() {
           onCheckin={handleCheckinBooking} 
           onCancel={handleCancelBooking}
           onDelete={handleDeleteBooking}
-          currentUserRole={userRoleId}
+          onEdit={handleEditBooking}
+          userRoleId={userRoleId}
         />
       </Grid>
+      
+      {/* Booking Form Dialog */}
+      <BookingFormInput
+        open={isFormOpen}
+        onClose={handleCloseForm}
+        selectedItem={selectedBooking}
+        onSaved={handleFormSaved}
+      />
     </Grid>
   );
 }

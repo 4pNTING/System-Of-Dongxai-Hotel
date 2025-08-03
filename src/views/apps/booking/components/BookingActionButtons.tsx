@@ -22,9 +22,11 @@ import { MESSAGES } from '../../../../libs/constants/messages.constant'
 
 interface BookingActionButtonsProps {
   booking: Booking
-  onEdit: (booking: Booking) => void
+  onEdit?: (booking: Booking) => void
   onDelete: (id: number) => Promise<void>
   onConfirm?: (booking: Booking) => Promise<void>
+  onCheckin?: (booking: Booking) => Promise<void>
+  onCancel?: (booking: Booking) => Promise<void>
   currentUserRole?: number
 }
 
@@ -33,6 +35,8 @@ const BookingActionButtons = ({
   onEdit, 
   onDelete, 
   onConfirm,
+  onCheckin,
+  onCancel,
   currentUserRole = 0 
 }: BookingActionButtonsProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -111,7 +115,9 @@ const BookingActionButtons = ({
   }
   
   const handleEdit = () => {
-    onEdit(booking)
+    if (onEdit) {
+      onEdit(booking)
+    }
   }
   
   const handleDeleteClick = async () => {

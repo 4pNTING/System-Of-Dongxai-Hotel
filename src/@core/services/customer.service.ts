@@ -1,7 +1,7 @@
 import { Customer } from "@core/domain/models/customer/list.model";
 import { CustomerRepositoryPort } from "@core/interface/repositoriesport/customer.port";
 import { CustomerUseCase } from "@core/use-cases/customer.use-case";
-import { CustomerFormData } from "@core/domain/models/customer/form.model";
+import { CustomerFormData, CustomerRegistrationData } from "@core/domain/models/customer/form.model";
 import { CustomerRepository } from "@core/infrastructure/api/repository/customer.repository";
 
 export class CustomerService {
@@ -21,6 +21,11 @@ export class CustomerService {
 
     async create(data: CustomerFormData): Promise<Customer> {
         return this.useCase.executeCreate(data);
+    }
+
+    // Frontend Registration - สำหรับลูกค้าสมัครเอง
+    async register(data: CustomerRegistrationData): Promise<Customer> {
+        return this.useCase.executeRegister(data);
     }
 
     async update(id: number, data: Partial<CustomerFormData>): Promise<Customer> {

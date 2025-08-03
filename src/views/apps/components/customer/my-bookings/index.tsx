@@ -13,7 +13,7 @@ const booknowList = ({ userData }: { userData?: UsersType[] }) => {
     <Grid container spacing={6}>
      
       <Grid item xs={12}>
-        <UserListTable tableData={userData} />
+        <UserListTable />
       </Grid>
     </Grid>
   )

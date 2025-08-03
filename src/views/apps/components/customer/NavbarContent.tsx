@@ -34,10 +34,9 @@ const NavbarContent = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   const navigationItems = [
-    { label: 'HOME', href: APP_ROUTES.CUSTOMER_HOME },
-    { label: 'BOOK NOW', href: APP_ROUTES.CUSTOMER_BOOK_NOW.BASE_URL },
-    { label: 'MY BOOKINGS', href: APP_ROUTES.CUSTOMER_BOOKING.BASE_URL },
-    { label: 'CONTACT', href: '#contact' }
+    { label: 'ໜ້າຫຼັກ', href: APP_ROUTES.CUSTOMER_HOME },
+    { label: 'ຈອງດຽວນີ້', href: APP_ROUTES.CUSTOMER_BOOK_NOW.BASE_URL },
+    { label: 'ການຈອງຂອງຂ້ອຍ', href: APP_ROUTES.CUSTOMER_BOOKING.BASE_URL }
   ]
 
   const handleMobileMenuToggle = () => {
@@ -100,7 +99,7 @@ const NavbarContent = () => {
                   textTransform: 'uppercase'
                 }}
               >
-                Luxury & Comfort
+                ຫຼູຫຼາ & ສະດວກສະບາຍ
               </Typography>
             </Box>
           </Box>

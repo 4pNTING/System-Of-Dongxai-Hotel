@@ -56,8 +56,8 @@ interface CustomerData {
   CustomerId: number;
   CustomerName: string;
   CustomerGender: string;
-  CustomerTel: string | number;
-  CustomerPostcode: number | null;
+  CustomerTel: string;
+  CustomerPostcode: string | null;
   CustomerAddress: string;
   userName: string;
   password: string | null;

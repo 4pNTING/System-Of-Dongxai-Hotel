@@ -36,9 +36,11 @@ interface CustomerFormInputProps {
 interface CustomerInputForm {
   CustomerName: string
   CustomerGender: string
-  CustomerTel: number | undefined
+  CustomerTel: string | undefined
   CustomerAddress: string
-  CustomerPostcode: number | undefined
+  CustomerPostcode: string | undefined
+  userName: string
+  password: string
 }
 
 const CustomerFormInput = ({ visible, onHide, selectedItem, onSaved }: CustomerFormInputProps) => {
@@ -51,7 +53,9 @@ const CustomerFormInput = ({ visible, onHide, selectedItem, onSaved }: CustomerF
     CustomerGender: 'MALE',
     CustomerTel: undefined,
     CustomerAddress: '',
-    CustomerPostcode: undefined
+    CustomerPostcode: undefined,
+    userName: '',
+    password: ''
   }
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<CustomerInputForm>({
@@ -65,9 +69,11 @@ const CustomerFormInput = ({ visible, onHide, selectedItem, onSaved }: CustomerF
       reset({
         CustomerName: selectedItem.CustomerName || '',
         CustomerGender: selectedItem.CustomerGender || 'MALE',
-        CustomerTel: selectedItem.CustomerTel ? Number(selectedItem.CustomerTel) : undefined,
+        CustomerTel: selectedItem.CustomerTel || undefined,
         CustomerAddress: selectedItem.CustomerAddress || '',
-        CustomerPostcode: selectedItem.CustomerPostcode ? Number(selectedItem.CustomerPostcode) : undefined
+        CustomerPostcode: selectedItem.CustomerPostcode || undefined,
+        userName: selectedItem.userName || '',
+        password: ''
       })
     } else if (visible) {
       reset(defaultValues)
@@ -90,7 +96,9 @@ const CustomerFormInput = ({ visible, onHide, selectedItem, onSaved }: CustomerF
         CustomerGender: data.CustomerGender,
         CustomerTel: data.CustomerTel,
         CustomerAddress: data.CustomerAddress,
-        CustomerPostcode: data.CustomerPostcode
+        CustomerPostcode: data.CustomerPostcode,
+        userName: data.userName,
+        password: data.password
       }
 
       if (isEditMode && selectedItem) {
@@ -225,6 +233,52 @@ const CustomerFormInput = ({ visible, onHide, selectedItem, onSaved }: CustomerF
                     helperText={errors.CustomerAddress?.message}
                     InputProps={{ sx: { borderRadius: 1 } }}
                     disabled={isSubmitting}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* บัญชีผู้ใช้ */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }}>ຂໍ້ມູນບັນຊີຜູ້ໃຊ້</Divider>
+            </Grid>
+
+            {/* ชื่อผู้ใช้ */}
+            <Grid item xs={12} md={6}>
+              <Controller
+                name='userName'
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label='ຊື່ຜູ້ໃຊ້'
+                    fullWidth
+                    error={Boolean(errors.userName)}
+                    helperText={errors.userName?.message}
+                    InputProps={{ sx: { borderRadius: 1 } }}
+                    disabled={isSubmitting || isEditMode}
+                    placeholder='ໃສ່ຊື່ຜູ້ໃຊ້ສຳລັບເຂົ້າສູ່ລະບົບ'
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* รหัสผ่าน */}
+            <Grid item xs={12} md={6}>
+              <Controller
+                name='password'
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label='ລະຫັດຜ່ານ'
+                    type='password'
+                    fullWidth
+                    error={Boolean(errors.password)}
+                    helperText={errors.password?.message}
+                    InputProps={{ sx: { borderRadius: 1 } }}
+                    disabled={isSubmitting || isEditMode}
+                    placeholder='ໃສ່ລະຫັດຜ່ານສຳລັບເຂົ້າສູ່ລະບົບ'
                   />
                 )}
               />

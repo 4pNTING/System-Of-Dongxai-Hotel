@@ -5,7 +5,7 @@ import { useLoadingStore } from '@/@core/infrastructure/store/useLoading.store';
 import { useErrorStore } from '@/@core/infrastructure/store/useError.store';
 
 // API configuration
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000/v1';
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:5000';
 const TIMEOUT = 30000;
 
 // Create Axios instance

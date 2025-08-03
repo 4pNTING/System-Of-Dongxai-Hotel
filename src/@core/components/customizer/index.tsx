@@ -397,9 +397,9 @@ const Customizer = ({ breakpoint = 'lg', dir = 'ltr', disableDirection = false }
                       })}
                       onClick={() =>
                         updateSettings({
-                          navbarContentWidth: 'compact',
-                          contentWidth: 'compact',
-                          footerContentWidth: 'compact'
+                          navbarContentWidth: 'wide',
+                          contentWidth: 'wide',
+                          footerContentWidth: 'wide'
                         })
                       }
                     >

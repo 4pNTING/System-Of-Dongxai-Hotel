@@ -1,7 +1,7 @@
 // src/app/application/use-cases/customer-use-case.ts
 import { Customer } from "@core/domain/models/customer/list.model";
 import { CustomerRepositoryPort } from "../interface/repositoriesport/customer.port";
-import { CustomerFormData } from "@core/domain/models/customer/form.model";
+import { CustomerFormData, CustomerRegistrationData } from "@core/domain/models/customer/form.model";
 
 export class CustomerUseCase {
     constructor(private readonly repository: CustomerRepositoryPort) { }
@@ -25,6 +25,15 @@ export class CustomerUseCase {
     async executeCreate(data: CustomerFormData): Promise<Customer> {
         try {
             return await this.repository.create(data);
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Frontend Registration - สำหรับลูกค้าสมัครเอง
+    async executeRegister(data: CustomerRegistrationData): Promise<Customer> {
+        try {
+            return await this.repository.register(data);
         } catch (error) {
             throw error;
         }

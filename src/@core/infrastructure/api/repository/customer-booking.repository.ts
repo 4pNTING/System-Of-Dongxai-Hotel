@@ -89,7 +89,8 @@ export class CustomerBookingRepository implements CustomerBookingRepositoryPort 
     async getBookingHistory(customerId: number): Promise<Booking[]> {
         try {
             console.log('📋 Repository: Fetching booking history for customer:', customerId);
-            const response = await api.get<ApiResponse<Booking[]>>(`${this.URL.HISTORY}?customerId=${customerId}`);
+            // Backend expects POST request and extracts customerId from JWT token
+            const response = await api.post<ApiResponse<Booking[]>>(this.URL.HISTORY, {});
             console.log('✅ Repository: Booking history fetched successfully:', response.data.data?.length || 0);
             return response.data.data || [];
         } catch (error) {

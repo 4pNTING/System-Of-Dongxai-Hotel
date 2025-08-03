@@ -1,7 +1,7 @@
 // src/views/apps/booking/BookingFilter.tsx
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
-import SearchIcon from '@mui/icons-material/Search';
+// Removed SearchIcon import to fix vendor-chunks error
 import Box from '@mui/material/Box';
 
 interface BookingSeachrProps {
@@ -20,7 +20,7 @@ export const BookingSeach = ({ value, onFilterChange }: BookingSeachrProps) => {
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon fontSize="small" />
+              <span style={{ fontSize: '18px', color: '#666' }}>🔍</span>
             </InputAdornment>
           )
         }}
