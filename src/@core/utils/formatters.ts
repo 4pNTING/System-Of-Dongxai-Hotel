@@ -23,11 +23,11 @@ export const formatCurrency = (
       style: 'currency',
       currency: currency,
       minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,  // 💰 แสดงเฉพาะจำนวนเต็ม ไม่มี .00
     }).format(numAmount);
   } catch (error) {
-    // Fallback formatting if Intl.NumberFormat fails
-    return `${numAmount.toLocaleString('lo-LA')} ₭`;
+    // Fallback formatting if Intl.NumberFormat fails - แสดงเฉพาะจำนวนเต็ม
+    return `${Math.round(numAmount).toLocaleString('lo-LA')} ₭`;
   }
 };
 

@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import { RoomWithGallery } from '@/@core/domain/models/room-gallery/list.model';
+import { bookingAttachmentService } from '@/@core/services/booking-attachment.service';
 
 // ✅ Helper function สำหรับ format image path
 const getImageUrl = (imagePath: string | null | undefined): string => {
@@ -56,16 +57,14 @@ const RoomCard: React.FC<RoomCardProps> = ({
   const [isBooking, setIsBooking] = useState(false);
   const [bookingDates, setBookingDates] = useState(defaultBookingDates);
   const [imageError, setImageError] = useState(false);
+  
+  // State ສຳລັບ file upload
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
 
   // ✅ เรียง gallery โดยใช้ IsPrimary เป็นหลัก (ไม่สนใจ DisplayOrder)
   const activeGalleries = room.galleries
     ?.filter(img => {
-      console.log(`🖼️ [Room ${room.RoomId}] Gallery:`, {
-        galleryId: img.GalleryId,
-        imageName: img.ImageName,
-        isPrimary: img.IsPrimary,
-        isActive: img.IsActive
-      });
       return img.IsActive;
     })
     ?.sort((a, b) => {
@@ -76,28 +75,18 @@ const RoomCard: React.FC<RoomCardProps> = ({
       return a.GalleryId - b.GalleryId;
     }) || [];
 
-  console.log(`🖼️ [Room ${room.RoomId}] Sorted galleries:`, 
-    activeGalleries.map(g => `${g.ImageName} (Primary: ${g.IsPrimary})`)
-  );
-
-  // ✅ หา primary image โดยตรง
   const primaryImage = activeGalleries.find(img => img.IsPrimary);
   const currentImage = activeGalleries[currentImageIndex];
   
-  // ✅ ใช้ primary image ก่อน ถ้าไม่มีใช้รูปแรก
   let displayImage: string;
   
   if (currentImageIndex === 0 && primaryImage) {
     displayImage = getImageUrl(primaryImage.ImagePath);
-    console.log(`🖼️ [Room ${room.RoomId}] Using PRIMARY:`, primaryImage.ImageName);
   } else if (currentImage?.ImagePath) {
     displayImage = getImageUrl(currentImage.ImagePath);
-    console.log(`🖼️ [Room ${room.RoomId}] Using current:`, currentImage.ImageName);
   } else if (room.primaryImage?.ImagePath) {
     displayImage = getImageUrl(room.primaryImage.ImagePath);
-    console.log(`🖼️ [Room ${room.RoomId}] Using room.primaryImage:`, room.primaryImage.ImageName);
   } else {
-    console.log(`🖼️ [Room ${room.RoomId}] Using fallback`);
     displayImage = 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop';
   }
 
@@ -160,12 +149,48 @@ const RoomCard: React.FC<RoomCardProps> = ({
     setIsBooking(true);
     
     try {
+      console.log('🚀 Starting one-step booking with optional file...');
+      
+      // สร้าง FormData สำหรับ one-step API
+      const formData = new FormData();
+      
+      // เพิ่ม booking data เป็น JSON string
       const bookingData = {
+        RoomId: room.RoomId,
         CheckinDate: bookingDates.checkinDate,
         CheckoutDate: bookingDates.checkoutDate
       };
-
-      await onBookRoom(room.RoomId, bookingData);
+      
+      // เพิ่มแต่ละ field เป็น string ใน FormData
+      Object.entries(bookingData).forEach(([key, value]) => {
+        if (value && typeof value === 'object' && 'toISOString' in value) {
+          // สำหรับ Date objects
+          formData.append(key, (value as Date).toISOString());
+        } else {
+          formData.append(key, String(value));
+        }
+      });
+      
+      // เพิ่มไฟล์ (ถ้ามี)
+      if (selectedFile) {
+        formData.append('receiptFile', selectedFile);
+        console.log('📄 File added to FormData:', selectedFile.name);
+      }
+      
+      console.log('📤 Sending booking request with FormData...');
+      
+      // เรียกใช้ one-step API (ใช้ onBookRoom แต่ส่ง FormData แทน)
+      await onBookRoom(room.RoomId, formData);
+      
+      console.log('✅ Booking completed successfully');
+      
+      // แสดงข้อความสำเร็จ
+      if (selectedFile) {
+        alert('✅ การจองและอัปโหลดสลิปเสร็จสำเร็จ!');
+      } else {
+        alert('✅ การจองสำเร็จ!');
+      }
+      
       setShowBookingForm(false);
     } catch (error) {
       console.error('Booking error:', error);
@@ -427,12 +452,93 @@ const RoomCard: React.FC<RoomCardProps> = ({
                   min={bookingDates.checkinDate || new Date().toISOString().split('T')[0]}
                 />
               </div>
+              
+              {/* ອັບໂຫລດສະລິບການໂອນເງິນ */}
+              <div>
+                <label className="block text-sm font-bold mb-2" style={{ color: '#d4851c' }}>
+                  💳 ແນບສະລິບການໂອນເງິນ (ທາງເລືອກ)
+                </label>
+                <div 
+                  className="border-2 border-dashed rounded-lg p-4 text-center transition-all duration-200 hover:border-solid cursor-pointer"
+                  style={{ borderColor: '#d4851c' }}
+                  onClick={() => document.getElementById('payment-receipt')?.click()}
+                >
+                  <input
+                    type="file"
+                    id="payment-receipt"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setSelectedFile(file)
+                        // ສ້າງ preview ສຳລັບຮູບພາບ
+                        if (file.type.startsWith('image/')) {
+                          const reader = new FileReader()
+                          reader.onload = (e) => setFilePreview(e.target?.result as string)
+                          reader.readAsDataURL(file)
+                        } else {
+                          setFilePreview(null)
+                        }
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                  
+                  {!selectedFile ? (
+                    <>
+                      <div className="text-4xl mb-2">📎</div>
+                      <p className="font-medium" style={{ color: '#d4851c' }}>
+                        ຄລິກເພື່ອເລືອກໄຟລ໌
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        ຮູບພາບ (.jpg, .png) ຫຼື PDF
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-green-500 text-sm font-medium mb-2">
+                        ✅ ເລືອກໄຟລ໌ແລ້ວ: {selectedFile.name}
+                      </div>
+                      
+                      {filePreview && (
+                        <div className="mt-2">
+                          <img 
+                            src={filePreview} 
+                            alt="Payment receipt preview" 
+                            className="mx-auto rounded border"
+                            style={{ 
+                              maxWidth: '120px', 
+                              maxHeight: '120px', 
+                              objectFit: 'contain'
+                            }} 
+                          />
+                        </div>
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedFile(null)
+                          setFilePreview(null)
+                          const input = document.getElementById('payment-receipt') as HTMLInputElement
+                          if (input) input.value = ''
+                        }}
+                        className="mt-2 text-red-500 text-sm hover:text-red-700 font-medium"
+                      >
+                        ❌ ລຶບໄຟລ໌
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
             
-            <div className="flex gap-4 mt-8">
+            {/* Action Buttons - ປຸ່ມຢືນຢັນ */}
+            <div className="flex flex-row gap-3 mt-8 w-full">
               <button
                 onClick={() => setShowBookingForm(false)}
-                className="flex-1 px-6 py-3 border-2 rounded-lg transition-all duration-200 font-medium"
+                className="flex-1 min-w-0 px-4 py-3 border-2 rounded-lg transition-all duration-200 font-medium text-sm sm:text-base whitespace-nowrap"
                 style={{ borderColor: '#d4851c', color: '#d4851c' }}
                 disabled={isBooking}
               >
@@ -440,14 +546,14 @@ const RoomCard: React.FC<RoomCardProps> = ({
               </button>
               <button
                 onClick={handleSubmitBooking}
-                className="flex-1 px-6 py-3 text-white rounded-lg transition-all duration-200 font-medium disabled:opacity-50 transform hover:scale-105"
+                className="flex-1 min-w-0 px-4 py-3 text-white rounded-lg transition-all duration-200 font-medium text-sm sm:text-base disabled:opacity-50 transform hover:scale-105 whitespace-nowrap"
                 style={{ 
                   background: 'linear-gradient(135deg, #d4851c, #f4a261)',
                   boxShadow: '0 4px 12px rgba(212, 133, 28, 0.3)'
                 }}
                 disabled={isBooking}
               >
-                {isBooking ? '⏳ ກຳລັງຈອງ...' : '✅ ຢືນຢັນການຈອງ'}
+                {isBooking ? '⏳ ກຳລັງຈອງ...' : '✅ ຢືນຢັນຈອງ'}
               </button>
             </div>
           </div>

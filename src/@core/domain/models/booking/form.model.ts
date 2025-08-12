@@ -13,6 +13,7 @@ export interface BookingInput {
   CheckoutDate: string;
   BookingDate: string;
   StatusId: number;
+  deposit?: number;  // เงินมัดจำ (LAK)
 }
 
 export interface BookingCreateInput {

@@ -31,12 +31,17 @@ export class CustomerBookingService {
     return this.useCase.executeSearchRooms(searchParams);
   }
 
-  
+  // จองห้องพักสำหรับลูกค้า (JSON format)
   async bookRoom(data: CustomerBookingInput): Promise<Booking> {
     return this.useCase.executeBookRoom(data);
   }
 
-  // ✅ ดึงประวัติการจองของลูกค้า
+  // จองห้องพักพร้อมอัปโหลดไฟล์ (FormData format) - One-step API
+  async bookRoomWithFile(formData: FormData): Promise<Booking> {
+    return this.useCase.executeBookRoomWithFile(formData);
+  }
+
+  // ดึงประวัติการจองของลูกค้า
   async getBookingHistory(customerId: number): Promise<Booking[]> {
     return this.useCase.executeGetBookingHistory(customerId);
   }

@@ -17,6 +17,9 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogContentText from '@mui/material/DialogContentText'
 import DialogTitle from '@mui/material/DialogTitle'
 import CircularProgress from '@mui/material/CircularProgress'
+import ImageIcon from '@mui/icons-material/Image'
+import ReceiptIcon from '@mui/icons-material/Receipt'
+import CloseIcon from '@mui/icons-material/Close'
 
 // Third-party Imports
 import classnames from 'classnames'
@@ -103,6 +106,8 @@ const BookingTable: React.FC<BookingTableProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null)
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<{url: string, title: string} | null>(null)
 
   // Status mapping
   const statusMap = useMemo(() => {
@@ -484,6 +489,55 @@ const BookingTable: React.FC<BookingTableProps> = ({
           >
             {isDeleting ? 'ກຳລັງລົບ...' : 'ລົບ'}
           </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={imagePreviewOpen}
+        onClose={() => setImagePreviewOpen(false)}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby='image-preview-dialog'
+      >
+        <DialogTitle id='image-preview-dialog' sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {selectedImage?.title}
+          <IconButton onClick={() => setImagePreviewOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center', padding: 2 }}>
+          {selectedImage && (
+            <img 
+              src={selectedImage.url}
+              alt={selectedImage.title}
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '70vh', 
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+              }}
+              onError={(e) => {
+                console.error('Image failed to load:', selectedImage.url);
+                (e.target as HTMLImageElement).src = '/images/placeholder-image.png';
+              }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImagePreviewOpen(false)} variant="outlined">
+            ປິດ
+          </Button>
+          {selectedImage && (
+            <Button 
+              onClick={() => window.open(selectedImage.url, '_blank')} 
+              variant="contained"
+              style={{ backgroundColor: '#d4851c' }}
+            >
+              ເປີດໃນໜ້າຕ່າງໃໝ່
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </>

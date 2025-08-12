@@ -141,6 +141,14 @@ const ENDPOINTS = {
         get OCCUPANCY() { return `${this.BASE_URL}/occupancy` },
         get BOOKINGS() { return `${this.BASE_URL}/bookings` }
     },
+    // ===== BOOKING ATTACHMENT ENDPOINTS =====
+    BOOKING_ATTACHMENT: {
+        BASE_URL: '/booking-attachments' as const,
+        UPLOAD: function (bookingId: number) { return `${this.BASE_URL}/${bookingId}/upload` },
+        BY_BOOKING: function (bookingId: number) { return `${this.BASE_URL}/booking/${bookingId}` },
+        DELETE: function (attachmentId: number) { return `${this.BASE_URL}/${attachmentId}` },
+        DOWNLOAD: function (attachmentId: number) { return `${this.BASE_URL}/${attachmentId}/download` }
+    },
     REPORTS: {
         BASE_URL: '/reports' as const,
         get DASHBOARD() { return `${this.BASE_URL}/dashboard` },
@@ -166,6 +174,7 @@ export const {
     ROOM_STATUS: ROOM_STATUS_ENDPOINTS,
     BOOKING: BOOKING_ENDPOINTS,
     BOOKING_STATUS: BOOKING_STATUS_ENDPOINTS,
+    BOOKING_ATTACHMENT: BOOKING_ATTACHMENT_ENDPOINTS, // New booking attachment endpoints
     CHECKIN: CHECKIN_ENDPOINTS,
     CHECKOUT: CHECKOUT_ENDPOINTS,
     PAYMENT: PAYMENT_ENDPOINTS,

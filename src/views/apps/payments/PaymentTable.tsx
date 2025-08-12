@@ -101,10 +101,32 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
         }
       }),
       columnHelper.accessor('amount', {
-        header: 'ຈຳນວນເງິນ',
+        header: 'ຍອດຊຳລະ',
         cell: info => (
-          <span className="font-medium text-success">{formatCurrency(info.getValue())}</span>
+          <span className="font-medium text-primary">{formatCurrency(info.getValue())}</span>
         )
+      }),
+      columnHelper.accessor('depositAmount', {
+        header: 'ມັດຈຳ',
+        cell: info => {
+          const deposit = info.getValue();
+          return (
+            <span className="font-medium text-warning">
+              {deposit ? formatCurrency(deposit) : '-'}
+            </span>
+          );
+        }
+      }),
+      columnHelper.accessor('totalAmount', {
+        header: 'ລາຄາລວມ',
+        cell: info => {
+          const total = info.getValue();
+          return (
+            <span className="font-medium text-success">
+              {total ? formatCurrency(total) : '-'}
+            </span>
+          );
+        }
       }),
       columnHelper.accessor('paymentDate', {
         header: 'ວັນທີຊຳລະ',

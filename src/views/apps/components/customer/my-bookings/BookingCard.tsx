@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { bookingAttachmentService, BookingAttachmentResponse } from '@/@core/services/booking-attachment.service';
 
 interface BookingCardProps {
   booking: {
@@ -35,6 +36,35 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onPrint 
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [attachments, setAttachments] = useState<BookingAttachmentResponse[]>([]);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+
+  // โหลดไฟล์แนบเมื่อ component mount
+  useEffect(() => {
+    const loadAttachments = async () => {
+      setIsLoadingAttachments(true);
+      try {
+        const attachmentList = await bookingAttachmentService.getAttachmentsByBookingId(booking.bookingId);
+        setAttachments(attachmentList);
+        console.log('📎 Loaded attachments:', attachmentList);
+      } catch (error) {
+        console.error('❌ Failed to load attachments:', error);
+      } finally {
+        setIsLoadingAttachments(false);
+      }
+    };
+
+    loadAttachments();
+  }, [booking.bookingId]);
+
+  // ฟังก์ชันแสดงใบเสร็จ
+  const handleViewReceipt = (attachment: BookingAttachmentResponse) => {
+    const imageUrl = bookingAttachmentService.getImageUrl(attachment.FilePath);
+    setSelectedReceipt(imageUrl);
+    setShowReceiptModal(true);
+  };
 
   // ฟังก์ชันแปลภาษา
   const getText = (laoText: string, thaiText: string) => {
@@ -238,6 +268,47 @@ const BookingCard: React.FC<BookingCardProps> = ({
             )}
           </div>
         </div>
+
+        {/* Payment Receipt Section */}
+        {attachments.length > 0 && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-2 rounded-lg border border-green-200 mt-2">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1">
+                <span className="text-xs">🧾</span>
+                <span className="text-xs font-medium text-green-700">
+                  {getText('ໃບເສຮັດການຊຳລະ', 'ใบเสร็จการชำระ')}
+                </span>
+              </div>
+              <span className="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">
+                {attachments.length} ໄຟລ໌
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {attachments.map((attachment, index) => (
+                <button
+                  key={attachment.AttachmentId}
+                  onClick={() => handleViewReceipt(attachment)}
+                  className="flex-1 min-w-0 px-2 py-1 bg-white border border-green-300 text-green-700 rounded-md hover:bg-green-50 transition-colors duration-200 text-xs font-medium truncate"
+                  title={getText('ຄລິກເພື່ອເບິ່ງໃບເສຮັດ', 'คลิกเพื่อดูใบเสร็จ')}
+                >
+                  📄 ໃບເສຮັດ {index + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Loading State for Attachments */}
+        {isLoadingAttachments && (
+          <div className="bg-gray-50 p-2 rounded-lg border border-gray-200 mt-2 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+              <span className="text-xs text-gray-600">
+                {getText('ກຳລັງໂຫຼດໃບເສຮັດ...', 'กำลังโหลดใบเสร็จ...')}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}
@@ -286,6 +357,55 @@ const BookingCard: React.FC<BookingCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Receipt Image Modal */}
+      {showReceiptModal && selectedReceipt && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">
+                {getText('ໃບເສຮັດການຊຳລະ', 'ใบเสร็จการชำระ')}
+              </h3>
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200"
+              >
+                <span className="text-xl text-gray-500">×</span>
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-4">
+              <div className="relative">
+                <img
+                  src={selectedReceipt}
+                  alt={getText('ໃບເສຮັດການຊຳລະ', 'ใบเสร็จการชำระ')}
+                  className="w-full h-auto rounded-lg shadow-lg"
+                  style={{ maxHeight: '60vh', objectFit: 'contain' }}
+                />
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="flex gap-2 p-4 border-t border-gray-200">
+              <a
+                href={selectedReceipt}
+                download
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-center text-sm font-medium"
+              >
+                📥 {getText('ດາວໂຫຼດ', 'ดาวน์โหลด')}
+              </a>
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors duration-200 text-sm font-medium"
+              >
+                {getText('ປິດ', 'ปิด')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -12,6 +12,7 @@ import DialogContentText from '@mui/material/DialogContentText'
 import DialogTitle from '@mui/material/DialogTitle'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
+import TextField from '@mui/material/TextField'
 
 // Type Imports
 import { Booking } from '@core/domain/models/booking/list.model'
@@ -46,6 +47,8 @@ const BookingActionButtons = ({
   const [canEdit, setCanEdit] = useState(false)
   const [canDelete, setCanDelete] = useState(false)
   const [canConfirm, setCanConfirm] = useState(false)
+  const [deposit, setDeposit] = useState<number>(0) // มัดจำที่พนักงานกำหนด
+  const [depositError, setDepositError] = useState<string>('')
   
   // ใช้ useSession hook จาก next-auth/react
   const { data: session } = useSession()
@@ -148,14 +151,42 @@ const BookingActionButtons = ({
     toast.info(MESSAGES.SUCCESS.CANCElED)
   }
   
+  const validateDeposit = (): boolean => {
+    setDepositError('')
+    const roomPrice = booking.room?.RoomPrice || 0
+    
+    if (deposit < 0) {
+      setDepositError('ມັດຈໍາບໍ່ສາມາດນ້ອຍກວ່າ 0')
+      return false
+    }
+    
+    if (deposit > roomPrice) {
+      setDepositError(`ມັດຈໍາບໍ່ສາມາດເກີນລາຄາຫ້ອງ ${roomPrice.toLocaleString()} LAK`)
+      return false
+    }
+    
+    return true
+  }
+
   const handleConfirmBooking = async () => {
+    if (!validateDeposit()) {
+      return
+    }
+    
     try {
       setIsConfirming(true)
       if (onConfirm) {
-        await onConfirm(booking)
-        toast.success('ຢືນຢັນການຈອງສໍາເລັດແລ້ວ')
+        // ສົ່ງຂໍ້ມູນການຈອງທີ່ມີມັດຈໍາ
+        const bookingWithDeposit = {
+          ...booking,
+          deposit: deposit
+        }
+        await onConfirm(bookingWithDeposit)
+        toast.success(`ຍືນຍັນການຈອງສໍາເລັດແລ້ວ${deposit > 0 ? ` (ມັດຈໍາ: ${deposit.toLocaleString()} LAK)` : ''}`)
       }
       setConfirmDialogOpen(false)
+      setDeposit(0) // Reset deposit
+      setDepositError('')
     } catch (error) {
       console.error('Error confirming booking:', error)
       toast.error('ເກີດຂໍ້ຜິດພາດໃນການຢືນຢັນການຈອງ')
@@ -291,6 +322,71 @@ const BookingActionButtons = ({
           <DialogContentText id='confirm-dialog-description'>
             ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການຢືນຢັນການຈອງນີ້? ການຢືນຢັນຈະປ່ຽນສະຖານະການຈອງເປັນ "ຢືນຢັນແລ້ວ"
           </DialogContentText>
+          
+          {/* ສ່ວນສໍາລັບກໍານີດມັດຈໍາ */}
+          <div style={{ marginTop: '20px' }}>
+            <TextField
+              type="number"
+              label='ມັດຈໍາ (LAK)'
+              fullWidth
+              value={deposit || ''}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const value = parseFloat(e.target.value) || 0
+                setDeposit(value)
+                setDepositError('') // Clear error when user types
+              }}
+              error={!!depositError}
+              helperText={depositError || `ລາຄາຫ້ອງ: ${(booking.room?.RoomPrice || 0).toLocaleString()} LAK | ມັດຈໍາສູງສຸດ: ${(booking.room?.RoomPrice || 0).toLocaleString()} LAK`}
+              disabled={isConfirming}
+              inputProps={{ 
+                min: 0, 
+                max: booking.room?.RoomPrice || 0,
+                step: 1000,
+                placeholder: '0'
+              }}
+              InputProps={{
+                startAdornment: (
+                  <span style={{ marginRight: '8px', color: '#666' }}>💰</span>
+                ),
+              }}
+              sx={{ 
+                borderRadius: 1,
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: '#4CAF50',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#4CAF50',
+                  },
+                }
+              }}
+            />
+            
+            {/* ສະແດງການຄິດໄລ່ລາຄາ */}
+            {deposit > 0 && (
+              <div style={{ 
+                marginTop: '12px', 
+                padding: '12px', 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: '8px',
+                fontSize: '14px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span>ລາຄາຫ້ອງ:</span>
+                  <span>{(booking.room?.RoomPrice || 0).toLocaleString()} LAK</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#f44336' }}>
+                  <span>ມັດຈໍາ:</span>
+                  <span>-{deposit.toLocaleString()} LAK</span>
+                </div>
+                <hr style={{ margin: '8px 0', border: '0', borderTop: '1px solid #ddd' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#4CAF50' }}>
+                  <span>ລາຄາສຸດທິ:</span>
+                  <span>{((booking.room?.RoomPrice || 0) - deposit).toLocaleString()} LAK</span>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
         <DialogActions className='dialog-actions-dense'>
           <Button 

@@ -62,6 +62,8 @@ export const mapPaymentToDisplayModel = (payment: PaymentModel): PaymentDisplayM
     },
     paymentMethod,
     amount: payment.PaymentPrice || 0,
+    depositAmount: payment.DepositAmount || 0,
+    totalAmount: payment.TotalAmount || 0,
     paymentDate,
     paymentStatus,
     paymentStatusId

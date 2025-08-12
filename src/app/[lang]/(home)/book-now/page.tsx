@@ -27,7 +27,8 @@ export default function CustomerRoomsPage() {
     searchRooms,
     setSearchFilters,
     clearSearchFilters,
-    bookRoom
+    bookRoom,
+    bookRoomWithFile
   } = useCustomerBookingStore();
 
   const [searchValue, setSearchValue] = useState('');
@@ -102,20 +103,36 @@ export default function CustomerRoomsPage() {
         return;
       }
 
+      console.log('🎯 handleBookRoom called with:', { roomId, bookingData });
+      console.log('📋 bookingData type:', typeof bookingData, bookingData instanceof FormData ? 'FormData' : 'Plain Object');
+
       toast.info('ກຳລັງດຳເນີນການຈອງ...');
 
-      const booking = await bookRoom({
-        RoomId: roomId,
-        CustomerId: userCustomerId,
-        ...bookingData
-      });
+      let booking;
+      
+      // ตรวจสอบว่า bookingData เป็น FormData หรือ plain object
+      if (bookingData instanceof FormData) {
+        console.log('📄 Using bookRoomWithFile for FormData');
+        // เพิ่ม roomId และ customerId ใน FormData
+        bookingData.append('RoomId', roomId.toString());
+        bookingData.append('CustomerId', userCustomerId.toString());
+        
+        booking = await bookRoomWithFile(bookingData);
+      } else {
+        console.log('📄 Using bookRoom for plain object');
+        booking = await bookRoom({
+          RoomId: roomId,
+          CustomerId: userCustomerId,
+          ...bookingData
+        });
+      }
 
       toast.success('ຈອງສຳເລັດ!');
-      
-      // Navigate to booking success or detail page
       console.log('Booking successful:', booking);
       
     } catch (error: any) {
+      console.error('❌ Booking error:', error);
+      
       // ดึง message จาก backend
       const backendMessage =
         error?.response?.data?.message ||
@@ -123,7 +140,7 @@ export default function CustomerRoomsPage() {
         error.message ||
         'Unknown error';
 
-      toast.error(` ${backendMessage}`);
+      toast.error(`ເກີດຂໍ້ຜິດພາດ: ${backendMessage}`);
     }
   };
 

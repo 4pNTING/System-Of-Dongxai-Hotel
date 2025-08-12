@@ -36,6 +36,11 @@ export const BookingFormSchema = z.object({
     required_error: "ກະລຸນາເລືອກສະຖານະ",
     invalid_type_error: "ສະຖານະບໍ່ຖືກຕ້ອງ",
   }).min(1, "ກະລຸນາເລືອກສະຖານະ"),
+
+  // 💰 เงินมัดจำ (ทางเลือก)
+  deposit: z.number({
+    invalid_type_error: "ມັດຈໍາຕ້ອງເປັນຕົວເລກ",
+  }).min(0, "ມັດຈໍາຕ້ອງເປັນຈໍານວນບວກ").optional(),
 }).refine(data => {
   // ตรวจสอบว่าวันที่ CheckinDate ต้องมาก่อนหรือเท่ากับ CheckoutDate
   return data.CheckinDate <= data.CheckoutDate;

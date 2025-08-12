@@ -25,7 +25,7 @@ export const BOOKING_QUERY = {
         "CreatedAt",
         "UpdatedAt"
       ],
-      relations: ["bookingStatus", "customer", "staff", "room"],
+      relations: ["bookingStatus", "customer", "staff", "room", "attachments"],
       filter: filter,
       getType: "many"
     })
@@ -57,7 +57,7 @@ export const BOOKING_QUERY = {
         "CreatedAt",
         "UpdatedAt"
       ],
-      relations: ["bookingStatus", "customer", "staff", "room", "room.roomType"],
+      relations: ["bookingStatus", "customer", "staff", "room", "room.roomType", "attachments"],
       filter: filter,
       getType: "one"
     })

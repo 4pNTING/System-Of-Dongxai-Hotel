@@ -110,7 +110,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
-        token.role = user.role;
+        // token.role = user.roleId;
         token.roleId = user.roleId;
         token.userName = user.userName;
         token.type = user.type;
@@ -142,7 +142,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.accessToken = token.accessToken as string;
         session.user.refreshToken = token.refreshToken as string;
-        session.user.role = token.role as string;
+        // session.user.role = token.role as string;
         session.user.userName = token.userName as string;
         session.user.id = token.sub as string;
         session.user.roleId = token.roleId as number | null;
@@ -242,7 +242,7 @@ declare module "next-auth" {
     // role?: string;
     userName?: string;
     roleId?: number | null;
-    // type?: string;
+    type?: string;
     customerId?: number | null;
   }
 }

@@ -26,20 +26,23 @@ import { Booking } from '@core/domain/models/booking/list.model';
 
 export default function BookingPage() {
   const {
-    items: allBookings,
+    items: bookings,
+    isLoading,
     fetchItems,
-    confirmBooking,
-    checkin: checkinBooking,
-    cancel: cancelBooking,
     delete: deleteBooking,
-    isLoading
+    confirmBooking,
+    checkinBooking,
+    cancelBooking,
+    update,
+    setFormVisible,
+    setSelectedItem,
+    isFormVisible: isFormOpen,
+    selectedItem: selectedBooking
   } = useBookingStore();
 
   const [searchValue, setSearchValue] = useState('');
   const [startDate, setStartDate] = useState(''); // เริ่มต้นแสดงข้อมูลทั้งหมด
   const [endDate, setEndDate] = useState('');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   const { data: session, status } = useSession();
   const isLoadingAuth = status === 'loading';
@@ -48,7 +51,7 @@ export default function BookingPage() {
     (typeof session.user.roleId === 'string' ? parseInt(session.user.roleId, 10) : session.user.roleId) : 0;
 
   // กรองข้อมูลตาม date range และ search
-  const filteredBookings = allBookings.filter(booking => {
+  const filteredBookings = bookings.filter((booking: Booking) => {
     // กรองตาม search
     const roomId = booking.RoomId ? String(booking.RoomId) : '';
     const roomName = booking.room?.roomType?.TypeName || '';
@@ -85,8 +88,39 @@ export default function BookingPage() {
   // Handlers
   const handleConfirmBooking = async (booking: Booking) => {
     try {
+      console.log('🏨 Confirming booking with data:', booking);
+      console.log('💰 Deposit value:', booking.deposit || 0);
+      
+      // ถ้ามี deposit ให้อัปเดต booking ก่อน จากนั้นถึงยืนยัน
+      if (booking.deposit && booking.deposit > 0) {
+        // ใช้ข้อมูลเดิมของ booking และแค่อัปเดต deposit
+        const updateData = {
+          RoomId: booking.RoomId,
+          CustomerId: booking.CustomerId, 
+          StaffId: booking.StaffId,
+          CheckinDate: typeof booking.CheckinDate === 'string' 
+            ? booking.CheckinDate 
+            : booking.CheckinDate.toISOString().split('T')[0],
+          CheckoutDate: typeof booking.CheckoutDate === 'string' 
+            ? booking.CheckoutDate 
+            : booking.CheckoutDate.toISOString().split('T')[0],
+          BookingDate: typeof booking.BookingDate === 'string' 
+            ? booking.BookingDate 
+            : booking.BookingDate.toISOString().split('T')[0],
+          StatusId: booking.StatusId,
+          deposit: booking.deposit
+        };
+        await update(booking.BookingId, updateData);
+        console.log('💰 Updated booking with deposit:', booking.deposit);
+      }
+      
       await confirmBooking(booking.BookingId);
-      toast.success('ຢືນຢັນການຈອງສໍາເລັດແລ້ວ');
+      
+      const depositValue = booking.deposit || 0;
+      const depositMsg = depositValue > 0 
+        ? ` (ມັດຈໍາ: ${depositValue.toLocaleString()} LAK)` 
+        : '';
+      toast.success(`ຢືນຢັນການຈອງສໍາເລັດແລ້ວ${depositMsg}`);
       fetchItems();
     } catch (error: any) {
       console.error('Error confirming booking:', error);
@@ -160,23 +194,23 @@ export default function BookingPage() {
 
   // Handlers for booking form
   const handleAddBooking = () => {
-    setSelectedBooking(null);
-    setIsFormOpen(true);
+    setSelectedItem(null);
+    setFormVisible(true);
   };
 
   const handleEditBooking = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setIsFormOpen(true);
+    setSelectedItem(booking);
+    setFormVisible(true);
   };
 
   const handleCloseForm = () => {
-    setIsFormOpen(false);
-    setSelectedBooking(null);
+    setFormVisible(false);
+    setSelectedItem(null);
   };
 
   const handleFormSaved = () => {
-    setIsFormOpen(false);
-    setSelectedBooking(null);
+    setFormVisible(false);
+    setSelectedItem(null);
     fetchItems(); // Refresh the booking list
     toast.success('ບັນທຶກການຈອງສໍາເລັດແລ້ວ');
   };

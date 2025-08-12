@@ -8,6 +8,7 @@ export interface Booking {
   CustomerId: number;
   StaffId: number;
   RoomId: number;
+  deposit?: number;  // มัดจำเป็น LAK (ทางเลือก)
   CreatedAt?: Date | string;
   UpdatedAt?: Date | string;
   
@@ -44,4 +45,10 @@ export interface Booking {
     StatusName: string;
     StatusDescription?: string;
   };
+  attachments?: {
+    AttachmentId: number;
+    BookingId: number;
+    FilePath: string;
+    UploadedAt: Date | string;
+  }[];
 }

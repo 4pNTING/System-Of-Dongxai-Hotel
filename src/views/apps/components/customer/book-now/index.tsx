@@ -31,7 +31,8 @@ const BookNowList: React.FC<BookNowListProps> = ({ userData }) => {
     isLoading,
     fetchRooms,
     searchRooms,
-    bookRoom
+    bookRoom,
+    bookRoomWithFile
   } = useCustomerBookingStore();
 
   const [searchValue, setSearchValue] = useState('');
@@ -90,30 +91,45 @@ const BookNowList: React.FC<BookNowListProps> = ({ userData }) => {
   const handleBookRoom = async (roomId: number, bookingData: any) => {
     try {
       toast.info('ກຳລັງດຳເນີນການຈອງ...');
-
-      // ✅ ส่งเฉพาะข้อมูลที่ backend ต้องการ (ไม่มี CustomerId)
-      const completeBookingData = {
-        RoomId: roomId,
-        CheckinDate: bookingData.CheckinDate,    // ✅ string format
-        CheckoutDate: bookingData.CheckoutDate,  // ✅ string format
-      };
-
-      console.log('📝 Complete booking data:', completeBookingData);
-
-      // const booking = await bookRoom(completeBookingData);
-
-      toast.success('ຈອງສຳເລັດ!');
-  
+      
+      console.log('📤 handleBookRoom called with:', { roomId, bookingData });
+      console.log('🔍 bookingData type:', typeof bookingData);
+      console.log('🔍 bookingData instanceof FormData:', bookingData instanceof FormData);
+      console.log('🔍 bookingData constructor:', bookingData.constructor?.name);
+      
+      // ตรวจสอบว่าเป็น FormData ຫຼື JSON object
+      if (bookingData instanceof FormData) {
+        console.log('📦 Received FormData - sending multipart request');
+        
+        // ສຳຫຼັບ FormData - เป็น one-step API call
+        const booking = await bookRoomWithFile(bookingData);
+        toast.success('ການຈອງແລະອັບໂຫຼດໄຟລ໌ສຳເລັດ!');
+        
+      } else {
+        console.log('📋 Received JSON object - using regular booking');
+        
+        // ສຳຫຼັບ JSON object - ใช้ regular booking API
+        const customerBookingData = {
+          RoomId: roomId,
+          CheckinDate: bookingData.CheckinDate,
+          CheckoutDate: bookingData.CheckoutDate,
+        };
+        
+        console.log('📝 Complete customer booking data:', customerBookingData);
+        const booking = await bookRoom(customerBookingData);
+        toast.success('ຈອງສຳເລັດ!');
+      }
       
     } catch (error: any) {
-      console.error('Error booking room:', error);
+      console.error('❌ Error booking room:', error);
       
       const errorMessage = error.response?.data?.message || 
                           error.response?.data?.error || 
+                          error.message ||
                           'Unknown error';
       
-      console.log('Full error response:', error.response?.data);
-      toast.error(`ເກີດຂໍ້ຜິດພາດໃນການຈອງ 1: ${errorMessage}`);
+      console.log('📊 Full error response:', error.response?.data);
+      toast.error(`ເກີດຂໍ້ຜິດພາດໃນການຈອງ: ${errorMessage}`);
     }
   };
 

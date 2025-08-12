@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { RoomWithGallery } from '@core/domain/models/room-gallery/list.model';
 import { Booking } from '@core/domain/models/booking/list.model';
-import { BookingInput } from '@core/domain/models/booking/form.model';
+import { BookingInput, CustomerBookingInput } from '@core/domain/models/booking/form.model';
 import { customerBookingService } from '@core/services/customer-booking.service';
 import { useErrorStore } from '../useError.store';
 import { useLoadingStore } from '../useLoading.store';
@@ -33,7 +33,8 @@ interface CustomerBookingState {
   clearSearchFilters: () => void;
   
   // ฟังก์ชันจัดการการจอง
-  bookRoom: (data: BookingInput) => Promise<Booking>;
+  bookRoom: (data: CustomerBookingInput) => Promise<Booking>;
+  bookRoomWithFile: (formData: FormData) => Promise<Booking>;
   fetchBookingHistory: (customerId: number) => Promise<void>;
   fetchBookingDetail: (bookingId: number) => Promise<void>;
   cancelBooking: (bookingId: number) => Promise<void>;
@@ -171,8 +172,8 @@ export const useCustomerBookingStore = create<CustomerBookingState>((set, get) =
     set({ searchFilters: initialSearchFilters });
   },
 
-  // ✅ จองห้องพัก
-  bookRoom: async (data: BookingInput) => {
+  // ✅ จองห้องพัก (JSON data)
+  bookRoom: async (data: CustomerBookingInput) => {
     const { setLoading } = useLoadingStore.getState();
     const { setError } = useErrorStore.getState();
     
@@ -198,6 +199,37 @@ export const useCustomerBookingStore = create<CustomerBookingState>((set, get) =
       set({ isBooking: false });
       setLoading(false);
       setError(error.message || 'Failed to book room');
+      throw error;
+    }
+  },
+
+  // ✅ จองห้องพักพร้อมอัปโหลดไฟล์ (FormData) - One-step API
+  bookRoomWithFile: async (formData: FormData) => {
+    const { setLoading } = useLoadingStore.getState();
+    const { setError } = useErrorStore.getState();
+    
+    try {
+      set({ isBooking: true });
+      setLoading(true);
+      
+      console.log('📦 Store: Booking room with file upload (FormData)...');
+      const booking = await customerBookingService.bookRoomWithFile(formData);
+      
+      console.log('✅ Store: Room booked with file successfully:', booking);
+      
+      // เพิ่มการจองใหม่เข้าไปใน bookings array
+      set(state => ({
+        bookings: [...state.bookings, booking],
+        isBooking: false
+      }));
+      
+      setLoading(false);
+      return booking;
+    } catch (error: any) {
+      console.error('❌ Store: Error booking room with file:', error);
+      set({ isBooking: false });
+      setLoading(false);
+      setError(error.message || 'Failed to book room with file');
       throw error;
     }
   },

@@ -18,6 +18,7 @@ export interface CustomerBookingRepositoryPort {
 
   // ✅ Booking Methods - เปลี่ยนเป็น CustomerBookingInput
   bookRoom(data: CustomerBookingInput): Promise<Booking>;
+  bookRoomWithFile(formData: FormData): Promise<Booking>;
   getBookingHistory(customerId: number): Promise<Booking[]>;
   getBookingDetail(bookingId: number): Promise<Booking>;
   cancelBooking(bookingId: number): Promise<Booking>;

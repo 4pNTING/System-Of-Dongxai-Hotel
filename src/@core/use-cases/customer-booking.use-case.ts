@@ -9,7 +9,7 @@ export class CustomerBookingUseCase {
   // ✅ ดึงข้อมูลห้องพักพร้อม Gallery สำหรับลูกค้า
   async executeGetRoomsForBooking(): Promise<RoomWithGallery[]> {
     try {
-      console.log('🏨 UseCase: Executing get rooms for booking...');
+     
       return await this.repository.getRoomsForBooking();
     } catch (error) {
       console.error('❌ UseCase: Error getting rooms for booking:', error);
@@ -20,7 +20,7 @@ export class CustomerBookingUseCase {
   // ✅ ดึงข้อมูลห้องพักเฉพาะห้องพร้อม Gallery
   async executeGetRoomDetail(roomId: number): Promise<RoomWithGallery> {
     try {
-      console.log('🏨 UseCase: Executing get room detail for ID:', roomId);
+     
       return await this.repository.getRoomDetail(roomId);
     } catch (error) {
       console.error('❌ UseCase: Error getting room detail:', error);
@@ -38,29 +38,40 @@ export class CustomerBookingUseCase {
     roomType?: string;
   }): Promise<RoomWithGallery[]> {
     try {
-      console.log('🔍 UseCase: Executing room search with params:', searchParams);
+      
       return await this.repository.searchRooms(searchParams);
     } catch (error) {
-      console.error('❌ UseCase: Error searching rooms:', error);
+      console.error(' UseCase: Error searching rooms:', error);
       throw error;
     }
   }
 
-  // ✅ จองห้องพัก - เปลี่ยนเป็น CustomerBookingInput
+  // จองห้องพัก - เปลี่ยนเป็น CustomerBookingInput
   async executeBookRoom(data: CustomerBookingInput): Promise<Booking> {
     try {
-      console.log('📝 UseCase: Executing book room:', data);
+      
       return await this.repository.bookRoom(data);
     } catch (error) {
-      console.error('❌ UseCase: Error booking room:', error);
+      console.error(' UseCase: Error booking room:', error);
       throw error;
     }
   }
 
-  // ✅ ดึงประวัติการจองของลูกค้า
+  // จองห้องพักพร้อมอัปโหลดไฟล์ - One-step API
+  async executeBookRoomWithFile(formData: FormData): Promise<Booking> {
+    try {
+      
+      return await this.repository.bookRoomWithFile(formData);
+    } catch (error) {
+      console.error(' UseCase: Error booking room with file:', error);
+      throw error;
+    }
+  }
+
+  // ดึงประวัติการจองของลูกค้า
   async executeGetBookingHistory(customerId: number): Promise<Booking[]> {
     try {
-      console.log('📋 UseCase: Executing get booking history for customer:', customerId);
+      
       return await this.repository.getBookingHistory(customerId);
     } catch (error) {
       console.error('❌ UseCase: Error getting booking history:', error);
@@ -71,7 +82,7 @@ export class CustomerBookingUseCase {
   // ✅ ดึงรายละเอียดการจอง
   async executeGetBookingDetail(bookingId: number): Promise<Booking> {
     try {
-      console.log('📋 UseCase: Executing get booking detail for ID:', bookingId);
+      
       return await this.repository.getBookingDetail(bookingId);
     } catch (error) {
       console.error('❌ UseCase: Error getting booking detail:', error);
@@ -82,7 +93,7 @@ export class CustomerBookingUseCase {
   // ✅ ยกเลิกการจอง
   async executeCancelBooking(bookingId: number): Promise<Booking> {
     try {
-      console.log('❌ UseCase: Executing cancel booking for ID:', bookingId);
+      
       return await this.repository.cancelBooking(bookingId);
     } catch (error) {
       console.error('❌ UseCase: Error canceling booking:', error);

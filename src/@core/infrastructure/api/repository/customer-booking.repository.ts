@@ -69,7 +69,7 @@ export class CustomerBookingRepository implements CustomerBookingRepositoryPort 
     // ✅ จองห้องพัก
     async bookRoom(data: CustomerBookingInput): Promise<Booking> {
         try {
-            // ส่งเฉพาะ prop ที่ backend ต้องการ
+            // ສ່ງເຉພາະ prop ທີ່ backend ຕ້ອງການ
             const payload = {
                 RoomId: data.RoomId,
                 CheckinDate: data.CheckinDate,
@@ -81,6 +81,26 @@ export class CustomerBookingRepository implements CustomerBookingRepositoryPort 
             return response.data.data;
         } catch (error) {
             console.error('❌ Repository: Error booking room:', error);
+            throw error;
+        }
+    }
+
+    // ✅ จองห้องพักพร້ອมອັປໂหลดไฟล໌ - One-step API
+    async bookRoomWithFile(formData: FormData): Promise<Booking> {
+        try {
+            console.log('📦 Repository: Booking room with file upload (FormData)...');
+            
+            // ສຳຫຼັບ FormData ໃຊ້ api.post ໂດยຕະຫຼັບສ່ງໄປ backend
+            const response = await api.post<ApiResponse<Booking>>(this.URL.BOOK, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            
+            console.log('✅ Repository: Room booked with file successfully:', response.data.data);
+            return response.data.data;
+        } catch (error) {
+            console.error('❌ Repository: Error booking room with file:', error);
             throw error;
         }
     }

@@ -8,6 +8,8 @@ export interface PaymentModel {
   CheckInId?: number
   BookingId?: number
   PaymentType?: string
+  DepositAmount?: number
+  TotalAmount?: number
   createdAt?: string | Date
   updatedAt?: string | Date
   
@@ -82,6 +84,8 @@ export interface PaymentDisplayModel {
   }
   paymentMethod: string
   amount: number
+  depositAmount?: number
+  totalAmount?: number
   paymentDate: string
   paymentStatus: 'paid' | 'pending' | 'failed' | 'refunded'
   paymentStatusId: number

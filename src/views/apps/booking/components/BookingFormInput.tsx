@@ -1,5 +1,6 @@
 // src/views/apps/booking/components/BookingFormInput.tsx
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-toastify'
@@ -47,6 +48,7 @@ interface BookingInputForm {
   CustomerId: number
   StaffId: number
   StatusId: number
+  deposit?: number
 }
 
 // Helper function to format date to yyyy-MM-dd
@@ -61,6 +63,8 @@ const formatDateForInput = (date: Date | string): string => {
 const parseDate = (dateString: string): Date => {
   return new Date(dateString)
 }
+
+
 
 const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormInputProps) => {
   // แก้ไขการเรียกใช้ store
@@ -77,6 +81,8 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
   const { items: customers, fetchItems: fetchCustomers } = useCustomerStore()
   const { items: staffs, fetchItems: fetchStaffs } = useStaffStore()
   const { bookingStatuses, fetchBookingStatuses } = useBookingStatusStore()
+  const { data: session } = useSession();
+  const [bookingData, setBookingData] = useState(null);
   
   const isEditMode = Boolean(selectedItem)
 
@@ -88,7 +94,8 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
     CheckoutDate: formatDateForInput(new Date(new Date().setDate(new Date().getDate() + 1))),
     CustomerId: 0,
     StaffId: 0,
-    StatusId: 0
+    StatusId: 0,
+    deposit: 0  // 💰 เพิ่มฟิลด์ deposit ใน defaultValues
   }
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<BookingInputForm>({
@@ -114,7 +121,8 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
         CheckoutDate: formatDateForInput(selectedItem.CheckoutDate),
         CustomerId: selectedItem.CustomerId,
         StaffId: selectedItem.StaffId,
-        StatusId: selectedItem.StatusId
+        StatusId: selectedItem.StatusId,
+        deposit: selectedItem.deposit || 0  // 💰 เพิ่มฟิลด์ deposit สำหรับโหมดแก้ไข
       })
     } else if (open) {
       reset(defaultValues)
@@ -146,7 +154,8 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
         StatusId: data.StatusId,
         BookingDate: typeof data.BookingDate === 'string' ? data.BookingDate : formatDateForInput(data.BookingDate as Date),
         CheckinDate: typeof data.CheckinDate === 'string' ? data.CheckinDate : formatDateForInput(data.CheckinDate as Date),
-        CheckoutDate: typeof data.CheckoutDate === 'string' ? data.CheckoutDate : formatDateForInput(data.CheckoutDate as Date)
+        CheckoutDate: typeof data.CheckoutDate === 'string' ? data.CheckoutDate : formatDateForInput(data.CheckoutDate as Date),
+        deposit: data.deposit || 0  // เพิ่มมัดจำ default เป็น 0 ถ้าไม่ได้กรอก
       }
       
       console.log('Prepared booking data for API:', bookingData)
@@ -417,6 +426,292 @@ const BookingFormInput = ({ open, onClose, selectedItem, onSaved }: BookingFormI
                 )}
               />
             </Grid>
+
+            {/* มัดจำ (Deposit) */}
+            <Grid item xs={12} md={6}>
+              <Controller
+                name='deposit'
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    type="number"
+                    label='ສ່ວນລົດ (LAK)'
+                    fullWidth
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0
+                      field.onChange(value)
+                    }}
+                    error={!!errors.deposit}
+                    helperText={errors.deposit?.message || 'ມັດຈໍາສໍາລັບການຈອງນີ້ (ທາງເລືອກ)'}
+                    disabled={isSubmitting}
+                    inputProps={{ 
+                      min: 0, 
+                      step: 1000,
+                      placeholder: '0'
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <span style={{ marginRight: '8px', color: '#666' }}>💰</span>
+                      ),
+                    }}
+                    sx={{ borderRadius: 1 }}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* ແສດງໄຟລ໌ແນບທີ່ມີຢູ່ (ໃບບິນ/ຮູບພາບ) */}
+            {selectedItem?.attachments && selectedItem.attachments.length > 0 && (
+              <Grid item xs={12}>
+                <div style={{ 
+                  marginTop: '16px', 
+                  padding: '16px', 
+                  backgroundColor: '#f8f9fa', 
+                  borderRadius: '8px',
+                  border: '1px solid #e3e6ea'
+                }}>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    backgroundColor: '#f8f9ff',
+                    border: '1px solid #e3e8ff'
+                  }}>
+                    <span style={{ 
+                      marginRight: '12px', 
+                      fontSize: '20px',
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                    }}>📎</span>
+                    <span style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      fontWeight: '700'
+                    }}>
+                      ໄຟລ໌ແນບ ({selectedItem.attachments.length} ໄຟລ໌)
+                    </span>
+                  </div>
+                  
+                  <div style={{ 
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    {selectedItem.attachments.map((attachment: any, index: number) => {
+                      const fileName = attachment.FilePath.split('/').pop() || 'unknown';
+                      const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileName);
+                      
+                      return (
+                        <div key={attachment.AttachmentId} style={{
+                          padding: '16px 20px',
+                          background: 'linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%)',
+                          borderRadius: '16px',
+                          border: '1px solid #e3e8ff',
+                          boxShadow: '0 4px 16px rgba(31, 38, 135, 0.1)',
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          cursor: 'default',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          backdropFilter: 'blur(5px)',
+                          minHeight: '70px'
+                        }}>
+                          {/* ໄອຄອນໄຟລ໌ */}
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            minWidth: '50px'
+                          }}>
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              background: isImage ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                              borderRadius: '10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                            }}>
+                              <span style={{ fontSize: '18px' }}>
+                                {isImage ? '🖼️' : '📄'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* ข້ອມູນໄຟລ໌ */}
+                          <div style={{ 
+                            flex: 1,
+                            marginLeft: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            fontWeight: '500',
+                            padding: '8px 12px',
+                            backgroundColor: '#f7fafc',
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0'
+                          }}>
+                            {new Date(attachment.UploadedAt).toLocaleDateString('lo-LA', {
+                              year: 'numeric',
+                              month: '2-digit', 
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                          
+                          {/* ปุ່ມເປີດໄຟລ໌ */}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              console.log('=== BUTTON CLICK STARTED ===');
+                              
+                              try {
+                                // ໃຊ້ fetch API ພ້ອມ JWT token ເພື່ອດາວໂຫລດໄຟລ໌
+                                console.log('Building download URL...');
+                                const downloadUrl = `http://localhost:5000/v1/booking-attachments/${attachment.AttachmentId}/download`;
+                                
+                                // ດຶງชື່ໄຟລ໌จາກ FilePath ເພາະໄມ່ມີ FileName field
+                                console.log('Extracting filename from FilePath...');
+                                const fileName = attachment.FilePath.split('/').pop() || 'attachment';
+                                
+                                console.log('Downloading file via authenticated API:', {
+                                  attachmentId: attachment.AttachmentId,
+                                  downloadUrl: downloadUrl,
+                                  filePath: attachment.FilePath,
+                                  extractedFileName: fileName
+                                });
+                                
+                                // ດຶງ accessToken จາກ NextAuth session
+                                console.log('Getting accessToken from NextAuth session...');
+                                console.log('Session object:', session);
+                                
+                                const token = session?.user?.accessToken;
+                                console.log('AccessToken retrieved:', token ? 'YES (exists)' : 'NO (null)');
+                                console.log('Session user:', session?.user);
+                                
+                                if (!token) {
+                                  console.error('No token found - showing alert');
+                                  alert('ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ');
+                                  return;
+                                }
+
+                                // ສົ່ງ request ດ້ວຍ JWT token
+                                console.log('Sending fetch request...');
+                                const response = await fetch(downloadUrl, {
+                                  method: 'GET',
+                                  headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                  },
+                                });
+
+                                console.log('Response received:', {
+                                  status: response.status,
+                                  statusText: response.statusText,
+                                  ok: response.ok,
+                                  headers: Object.fromEntries(response.headers.entries())
+                                });
+
+                                if (!response.ok) {
+                                  const errorText = await response.text();
+                                  console.error('Response error:', errorText);
+                                  throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                                }
+
+                                // ແປງເປັນ blob ແລະສ້າງ URL
+                                console.log('Converting to blob...');
+                                const blob = await response.blob();
+                                console.log('Blob created:', {
+                                  size: blob.size,
+                                  type: blob.type
+                                });
+                                
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                console.log('Blob URL created:', blobUrl);
+                                
+                                // ເປີດໄຟລ໌ໃນ tab ໃຫມ່ເພື່ອ preview ແທນ download
+                                console.log('Opening file in new tab for preview...');
+                                const previewWindow = window.open(blobUrl, '_blank');
+                                
+                                if (!previewWindow || previewWindow.closed || typeof previewWindow.closed === 'undefined') {
+                                  console.error('Popup blocked - falling back to download');
+                                  // Fallback: ถ້າ popup ບ່ນໄດ້ ໃຫ້ download ແທນ
+                                  const link = document.createElement('a');
+                                  link.href = blobUrl;
+                                  link.download = fileName;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  alert('ບໍ່ສາມາດເປີດໄຟລ໌ໄດ້ - ກະລຸນາອະນຸຍາດ popup');
+                                } else {
+                                  console.log('File opened in new tab successfully');
+                                }
+                                
+                                // ລຶບ blob URL ເພື່ອປ່ອຍ memory
+                                setTimeout(() => {
+                                  console.log('Cleaning up blob URL...');
+                                  window.URL.revokeObjectURL(blobUrl);
+                                }, 100);
+                                
+                                console.log('File download process completed successfully');
+                              } catch (error) {
+                                console.error('Error downloading file:', error);
+                                alert('ມີຂໍ້ຜິດພາດໃນການດາວໂຫລດໄຟລ໌');
+                              }
+                            }}
+                            style={{
+                              padding: '12px 24px',
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              textTransform: 'none',
+                              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              letterSpacing: '0.5px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                              minWidth: '120px',
+                              transform: 'translateY(0)',
+                              backdropFilter: 'blur(10px)'
+                            }}
+                            onMouseOver={(e) => {
+                              const element = e.target as HTMLElement;
+                              element.style.transform = 'translateY(-2px)';
+                              element.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.5)';
+                            }}
+                            onMouseOut={(e) => {
+                              const element = e.target as HTMLElement;
+                              element.style.transform = 'translateY(0)';
+                              element.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                            }}
+                          >
+                            ເບິ່ງໄຟລ໌
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
 
